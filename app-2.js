@@ -35,6 +35,16 @@ async function loadCloudState() {
     return;
   }
 
+  if (!(trackersResult.data || []).length && !settingsResult.data && !loadQueue().length) {
+    const defaults = makeDefaultTrackers();
+    const { error: seedError } = await supabaseClient.from('trackers').insert(defaults.map(trackerToDb));
+    if (!seedError) {
+      await supabaseClient.from('user_settings').upsert(settingsToDb({ theme: 'system', confirmDelete: true }), { onConflict: 'user_id' });
+      trackersResult.data = defaults.map(tracker => ({ ...trackerToDb(tracker), created_at: tracker.createdAt }));
+      settingsResult.data = { theme: 'system', preferences: { confirmDelete: true } };
+    }
+  }
+
   const cloud = {
     version: 3,
     trackers: (trackersResult.data || []).map(trackerFromDb),
