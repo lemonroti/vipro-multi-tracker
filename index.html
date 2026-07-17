@@ -1,126 +1,209 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="theme-color" content="#111827" />
-  <title>Vipro Multi Tracker</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="description" content="A flexible personal multi-tracker with cloud sync and offline recording." />
+  <title>My Tracker</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div id="authScreen" class="auth-screen">
-    <form id="authForm" class="auth-card">
-      <div class="brand-mark">V</div>
-      <h1>Vipro Multi Tracker</h1>
-      <p class="muted">Track anything with your own units and quick values.</p>
-      <label>Email<input id="email" type="email" autocomplete="email" required /></label>
-      <label>Password<input id="password" type="password" minlength="6" autocomplete="current-password" required /></label>
-      <button id="signInBtn" class="primary" type="submit">Sign in</button>
-      <button id="signUpBtn" class="secondary" type="button">Create account</button>
-      <p id="authMessage" class="message"></p>
-    </form>
-  </div>
+  <section id="authScreen" class="auth-shell">
+    <article class="card auth-card">
+      <div class="brand auth-brand">
+        <div class="brand-mark">MT</div>
+        <div><h1 style="font-size:16px;margin:0">My Tracker</h1><p style="margin:3px 0 0">Your personal multi-tracker</p></div>
+      </div>
+      <h1>Welcome back</h1>
+      <p class="auth-copy">Sign in to keep your trackers and records synced across browsers and devices.</p>
+      <form id="authForm" class="auth-form">
+        <div class="field"><label for="email">Email</label><input id="email" class="input" type="email" autocomplete="email" required /></div>
+        <div class="field"><label for="password">Password</label><input id="password" class="input" type="password" autocomplete="current-password" minlength="6" required /></div>
+        <div class="auth-actions"><button id="signInBtn" class="button primary" type="submit">Sign in</button><button id="signUpBtn" class="button outline" type="button">Create account</button></div>
+        <p id="authMessage" class="auth-message" role="status"></p>
+      </form>
+      <p class="auth-note">New accounts can sign in immediately. Your tracking data is private to your Supabase account through Row Level Security.</p>
+    </article>
+  </section>
 
-  <div id="app" class="app hidden">
-    <aside class="sidebar">
-      <div class="brand"><span class="brand-mark small">V</span><strong>Multi Tracker</strong></div>
-      <nav>
-        <button data-view="home" class="nav-btn active">Home</button>
-        <button data-view="history" class="nav-btn">History</button>
-        <button data-view="trackers" class="nav-btn">Trackers</button>
-        <button data-view="settings" class="nav-btn">Settings</button>
+  <div id="app" class="app-shell" hidden>
+    <aside class="sidebar" aria-label="Primary navigation">
+      <div class="brand">
+        <div class="brand-mark">MT</div>
+        <div><h1>My Tracker</h1><p>Cloud-synced tracking</p></div>
+      </div>
+      <nav class="nav-stack">
+        <a class="nav-button active" data-nav="dashboard" href="#view-dashboard"><span class="nav-icon">⌂</span><span>Dashboard</span></a>
+        <a class="nav-button" data-nav="history" href="#view-history"><span class="nav-icon">▤</span><span>History</span></a>
+        <a class="nav-button" data-nav="trackers" href="#view-trackers"><span class="nav-icon">◫</span><span>Trackers</span></a>
+        <a class="nav-button" data-nav="settings" href="#view-settings"><span class="nav-icon">⚙</span><span>Settings</span></a>
       </nav>
-      <button id="signOutBtn" class="ghost">Sign out</button>
+      <div class="prototype-note cloud-note"><strong><span id="sidebarStatusDot" class="status-dot"></span><span id="sidebarStatusTitle">Cloud sync active</span></strong><span id="sidebarStatusText">Changes are saved to Supabase and cached locally for offline use.</span></div>
     </aside>
 
     <main class="main">
       <header class="topbar">
-        <div><p class="eyebrow">PERSONAL DASHBOARD</p><h1 id="pageTitle">Today</h1></div>
-        <button id="addTrackerTop" class="primary">+ New tracker</button>
+        <div>
+          <p id="pageEyebrow" class="eyebrow">Good morning</p>
+          <h1 id="pageTitle" class="page-title">Your daily tracking</h1>
+        </div>
+        <div class="top-actions">
+          <div id="syncBadge" class="sync-badge"><span id="syncBadgeDot" class="status-dot"></span><span id="syncBadgeText">Synced</span></div>
+          <button id="headerAction" class="button primary">+ Add tracker</button>
+        </div>
       </header>
 
-      <section id="homeView" class="view active">
-        <div id="offlineBanner" class="banner hidden">Offline mode — changes will sync automatically when you reconnect.</div>
-        <div id="summaryCards" class="summary-grid"></div>
-        <div class="panel">
-          <div class="panel-head"><h2>Your trackers</h2><span id="syncStatus" class="muted">Ready</span></div>
-          <div id="trackerCards" class="tracker-grid"></div>
-        </div>
-        <div class="panel">
-          <div class="panel-head"><h2>Recent activity</h2><button class="link-btn" data-view="history">View all</button></div>
-          <div id="recentList" class="list"></div>
-        </div>
-      </section>
+      <div id="offlineBanner" class="offline-banner" hidden>You are offline. Changes will be saved on this device and synced automatically when you reconnect.</div>
 
-      <section id="historyView" class="view">
-        <div class="panel">
-          <div class="filters">
-            <select id="historyTracker"><option value="all">All trackers</option></select>
-            <input id="historyDate" type="date" />
-            <input id="historySearch" type="search" placeholder="Search notes" />
-            <button id="clearFilters" class="secondary">Clear</button>
+      <div class="content">
+        <section id="view-dashboard" class="view">
+          <div class="grid stats-grid">
+            <article class="card stat-card"><p class="stat-label">Today’s records</p><p id="statTodayEntries" class="stat-value">0</p><p id="statTodayCaption" class="stat-caption">Nothing logged yet</p></article>
+            <article class="card stat-card"><p class="stat-label">Active trackers</p><p id="statActiveTrackers" class="stat-value">0</p><p class="stat-caption">Available for quick recording</p></article>
+            <article class="card stat-card"><p class="stat-label">Last activity</p><p id="statLastActivity" class="stat-value" style="font-size:21px">No activity</p><p id="statLastCaption" class="stat-caption">Start with a quick button below</p></article>
           </div>
-          <div id="historyList" class="list"></div>
-        </div>
-      </section>
 
-      <section id="trackersView" class="view">
-        <div class="panel">
-          <div class="panel-head"><h2>Manage trackers</h2><button id="addTrackerBtn" class="primary">+ New tracker</button></div>
-          <div id="manageTrackers" class="list"></div>
-        </div>
-      </section>
+          <section class="section">
+            <div class="section-head">
+              <div><p class="section-kicker">Quick record</p><h2>Today</h2></div>
+              <button class="button ghost small" data-open-log>Add manual record</button>
+            </div>
+            <div id="dashboardTrackerGrid" class="grid tracker-grid"></div>
+          </section>
 
-      <section id="settingsView" class="view">
-        <div class="panel settings-grid">
-          <div><h2>Appearance</h2><p class="muted">Choose how the app looks on this device.</p></div>
-          <select id="themeSelect"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
-          <div><h2>Offline queue</h2><p id="queueInfo" class="muted">No pending changes.</p></div>
-          <button id="syncNowBtn" class="secondary">Sync now</button>
-          <div><h2>Account</h2><p id="accountEmail" class="muted"></p></div>
-          <button id="settingsSignOut" class="danger-outline">Sign out</button>
-        </div>
-      </section>
+          <section class="section grid two-column">
+            <article class="card card-pad">
+              <div class="section-head">
+                <div><p class="section-help">Recent activity</p><h2>Latest records</h2></div>
+                <button class="button ghost small" data-go="history">View all</button>
+              </div>
+              <div id="dashboardActivity" class="activity-list"></div>
+            </article>
+
+            <article class="card card-pad chart-card">
+              <div class="chart-head">
+                <div><p class="section-help">Last 7 days</p><h2>Daily totals</h2></div>
+                <select id="dashboardChartTracker" class="select" style="width:auto;min-width:130px"></select>
+              </div>
+              <div id="dashboardChart" class="chart"></div>
+            </article>
+          </section>
+        </section>
+
+        <section id="view-history" class="view" hidden>
+          <article class="card card-pad">
+            <div class="section-head">
+              <div><p class="section-kicker">All records</p><h2>Tracking history</h2></div>
+              <button class="button primary small" data-open-log>+ Add record</button>
+            </div>
+            <div class="filters">
+              <div class="field"><label for="historyTracker">Tracker</label><select id="historyTracker" class="select"></select></div>
+              <div class="field"><label for="historyDate">Date</label><input id="historyDate" class="input" type="date" /></div>
+              <div class="field"><label for="historySearch">Search note</label><input id="historySearch" class="input" placeholder="Search..." /></div>
+            </div>
+            <div id="historySummary" class="history-summary"></div>
+            <div id="historyGroups" class="history-groups"></div>
+          </article>
+        </section>
+
+        <section id="view-trackers" class="view" hidden>
+          <div class="section-head">
+            <div><p class="section-kicker">Configure</p><h2>Your trackers</h2><p class="section-help">Change quick values, goals, icons, and visibility.</p></div>
+            <button class="button primary" data-open-tracker>+ New tracker</button>
+          </div>
+          <div id="trackerManageList" class="manage-list"></div>
+        </section>
+
+        <section id="view-settings" class="view" hidden>
+          <div class="settings-grid">
+            <article class="card card-pad settings-card">
+              <h2>Appearance</h2>
+              <p>Choose how My Tracker looks on this device.</p>
+              <div class="field"><label for="themeSelect">Theme</label><select id="themeSelect" class="select"><option value="system">Follow device</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
+              <div class="setting-row"><div><strong>Confirm before deleting</strong><span>Helps prevent accidental deletion.</span></div><button id="confirmDeleteToggle" class="toggle on" aria-label="Toggle delete confirmation"></button></div>
+            </article>
+
+            <article class="card card-pad settings-card">
+              <h2>Cloud sync & backup</h2>
+              <p id="storageInfo">Loading your cloud data...</p>
+              <div class="sync-grid">
+                <div class="sync-row"><div class="sync-copy"><strong>Sync status</strong><span id="syncInfo">Checking connection...</span></div><button id="syncNow" class="button outline small">Sync now</button></div>
+              </div>
+              <div class="settings-actions" style="margin-top:16px">
+                <button id="exportJson" class="button outline small">Export JSON</button>
+                <button id="exportCsv" class="button outline small">Export CSV</button>
+                <label class="button outline small" for="importFile">Import JSON</label>
+                <input id="importFile" class="hidden-file" type="file" accept="application/json,.json" />
+              </div>
+            </article>
+
+            <article class="card card-pad settings-card">
+              <h2>Account</h2>
+              <p>Your data is isolated to this signed-in account.</p>
+              <div class="setting-row"><div style="min-width:0"><strong>Signed in as</strong><span id="accountEmail" class="account-email">—</span></div><button id="settingsSignOut" class="button outline small">Sign out</button></div>
+            </article>
+
+            <article class="card card-pad settings-card">
+              <h2>Testing tools</h2>
+              <p>Add temporary sample records to test charts, filters, editing, and deletion.</p>
+              <div class="settings-actions"><button id="loadSampleData" class="button outline">Load sample records</button><button id="clearLogs" class="button danger">Clear all records</button></div>
+            </article>
+
+            <article class="card card-pad settings-card">
+              <h2>Reset</h2>
+              <p>Restore the original Smoking and 觀世音菩薩聖號 trackers and remove all other records and trackers.</p>
+              <button id="resetEverything" class="button danger">Reset full tracker</button>
+            </article>
+          </div>
+        </section>
+      </div>
     </main>
-
-    <nav class="mobile-nav">
-      <button data-view="home" class="nav-btn active">Home</button>
-      <button data-view="history" class="nav-btn">History</button>
-      <button data-view="trackers" class="nav-btn">Trackers</button>
-      <button data-view="settings" class="nav-btn">Settings</button>
-    </nav>
   </div>
 
-  <dialog id="trackerDialog">
-    <form id="trackerForm" method="dialog" class="dialog-form">
-      <input id="trackerId" type="hidden" />
-      <div class="dialog-head"><h2 id="trackerDialogTitle">New tracker</h2><button type="button" class="icon-btn" data-close="trackerDialog">×</button></div>
-      <label>Name<input id="trackerName" maxlength="80" required /></label>
-      <div class="two-col">
-        <label>Unit<input id="trackerUnit" maxlength="30" placeholder="count, minute, ml..." required /></label>
-        <label>Icon<input id="trackerIcon" maxlength="16" value="◫" required /></label>
-      </div>
-      <div class="two-col">
-        <label>Colour<input id="trackerColor" type="color" value="#6d4aff" /></label>
-        <label>Daily goal<input id="trackerGoal" type="number" min="0" step="any" placeholder="Optional" /></label>
-      </div>
-      <label>Quick values<input id="trackerQuickValues" placeholder="1 or 5,10,15" required /></label>
-      <div class="dialog-actions"><button type="button" class="secondary" data-close="trackerDialog">Cancel</button><button class="primary" value="default">Save tracker</button></div>
-    </form>
-  </dialog>
+  <nav id="mobileNav" class="mobile-nav" aria-label="Mobile navigation" hidden>
+    <a class="nav-button active" data-nav="dashboard" href="#view-dashboard"><span class="nav-icon">⌂</span><span>Home</span></a>
+    <a class="nav-button" data-nav="history" href="#view-history"><span class="nav-icon">▤</span><span>History</span></a>
+    <a class="nav-button" data-nav="trackers" href="#view-trackers"><span class="nav-icon">◫</span><span>Trackers</span></a>
+    <a class="nav-button" data-nav="settings" href="#view-settings"><span class="nav-icon">⚙</span><span>Settings</span></a>
+  </nav>
 
-  <dialog id="logDialog">
-    <form id="logForm" method="dialog" class="dialog-form">
-      <input id="logId" type="hidden" /><input id="logTrackerId" type="hidden" />
-      <div class="dialog-head"><h2 id="logDialogTitle">Add record</h2><button type="button" class="icon-btn" data-close="logDialog">×</button></div>
-      <label>Value<input id="logValue" type="number" min="0.000001" step="any" required /></label>
-      <label>Date and time<input id="logOccurredAt" type="datetime-local" required /></label>
-      <label>Note<textarea id="logNote" maxlength="500" rows="3"></textarea></label>
-      <div class="dialog-actions"><button type="button" class="secondary" data-close="logDialog">Cancel</button><button class="primary" value="default">Save record</button></div>
-    </form>
-  </dialog>
+  <div id="trackerModal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="trackerModalTitle">
+      <div class="modal-head"><div><p class="modal-kicker">Tracker setup</p><h2 id="trackerModalTitle">Create tracker</h2></div><button class="icon-button" data-close-modal="trackerModal">✕</button></div>
+      <form id="trackerForm">
+        <input id="trackerEditId" type="hidden" />
+        <div class="form-grid two">
+          <div class="field"><label for="trackerName">Tracker name</label><input id="trackerName" class="input" required maxlength="80" placeholder="e.g. Water" /></div>
+          <div class="field"><label for="trackerIcon">Icon / emoji</label><input id="trackerIcon" class="input" maxlength="4" required value="✦" /></div>
+          <div class="field"><label for="trackerUnit">Unit</label><input id="trackerUnit" class="input" required maxlength="30" placeholder="minute, count, ml" /></div>
+          <div class="field"><label for="trackerGoal">Daily goal (optional)</label><input id="trackerGoal" class="input" type="number" min="0" step="any" placeholder="30" /></div>
+        </div>
+        <div class="field" style="margin-top:14px"><label for="trackerPresets">Quick values, separated by commas</label><input id="trackerPresets" class="input" required placeholder="5, 10, 15" /></div>
+        <div class="field" style="margin-top:14px"><label>Card colour</label><div id="trackerColors" class="color-options"></div></div>
+        <div class="form-actions"><button type="button" class="button outline" data-close-modal="trackerModal">Cancel</button><button class="button primary">Save tracker</button></div>
+      </form>
+    </div>
+  </div>
 
-  <div id="toast" class="toast hidden"></div>
+  <div id="logModal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="logModalTitle">
+      <div class="modal-head"><div><p class="modal-kicker">Record details</p><h2 id="logModalTitle">Add record</h2></div><button class="icon-button" data-close-modal="logModal">✕</button></div>
+      <form id="logForm">
+        <input id="logEditId" type="hidden" />
+        <div class="form-grid two">
+          <div class="field"><label for="logTracker">Tracker</label><select id="logTracker" class="select" required></select></div>
+          <div class="field"><label for="logValue">Value</label><input id="logValue" class="input" type="number" min="0.01" step="any" required /></div>
+          <div class="field" style="grid-column:1/-1"><label for="logDateTime">Date and time</label><input id="logDateTime" class="input" type="datetime-local" required /></div>
+          <div class="field" style="grid-column:1/-1"><label for="logNote">Note (optional)</label><textarea id="logNote" class="textarea" maxlength="500" placeholder="Anything useful about this record"></textarea></div>
+        </div>
+        <div class="form-actions"><button type="button" class="button outline" data-close-modal="logModal">Cancel</button><button class="button primary">Save record</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"><span id="toastMessage">Recorded</span><button id="toastUndo" hidden>Undo</button></div>
+
   <script type="module" src="app.js"></script>
 </body>
 </html>
