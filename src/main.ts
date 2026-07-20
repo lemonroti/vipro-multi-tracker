@@ -1,0 +1,228 @@
+import type { OfflineOperation } from './domain/operations';
+import { createAuthController, type AuthSession } from './features/auth';
+import { createShellController } from './features/shell';
+import { createAppStore } from './state/app-store';
+import { createAuthService, type SessionUser } from './services/auth-service';
+import { UserCache } from './services/cache';
+import { CloudStateService } from './services/cloud-state-service';
+import { LogService } from './services/log-service';
+import { OfflineQueue } from './services/offline-queue';
+import {
+  SupabaseLogRepository,
+  SupabaseSettingsRepository,
+  SupabaseTrackerRepository
+} from './services/supabase-repositories';
+import { createSupabaseClient } from './services/supabase-client';
+import { SettingsService } from './services/settings-service';
+import { SyncService } from './services/sync-service';
+import { TrackerService } from './services/tracker-service';
+
+const FATAL_STARTUP_MESSAGE =
+  'The app could not finish loading. Refresh the page and check your internet connection.';
+
+interface ActiveUserApplication {
+  userId: string;
+  refreshCloud(): Promise<void>;
+}
+
+let started = false;
+
+function authSession(user: SessionUser | null): AuthSession | null {
+  if (user === null) return null;
+  return user.email === undefined
+    ? { user: { id: user.id } }
+    : { user: { id: user.id, email: user.email } };
+}
+
+export function handleFatalStartupError(error: unknown): void {
+  if (import.meta.env.DEV) console.error('Typed application startup failed.', error);
+  const message = document.querySelector<HTMLElement>('#authMessage');
+  if (message) message.textContent = FATAL_STARTUP_MESSAGE;
+}
+
+export async function startApplication(): Promise<void> {
+  if (started) return;
+  started = true;
+
+  const client = createSupabaseClient();
+  const authService = createAuthService(client);
+  const store = createAppStore();
+  const cache = new UserCache(localStorage);
+  const queue = new OfflineQueue(localStorage);
+  const shell = createShellController();
+  let activeApplication: ActiveUserApplication | null = null;
+
+  const updateConnection = (syncing = false): void => {
+    shell.updateConnection({
+      online: navigator.onLine,
+      pendingCount: activeApplication === null
+        ? 0
+        : queue.load(activeApplication.userId).length,
+      syncing
+    });
+  };
+
+  const createUserApplication = (userId: string): ActiveUserApplication => {
+    const trackerRepository = new SupabaseTrackerRepository(client, userId);
+    const logRepository = new SupabaseLogRepository(client, userId);
+    const settingsRepository = new SupabaseSettingsRepository(client, userId);
+    const executeOperation = async (operation: OfflineOperation): Promise<void> => {
+      if (operation.type === 'upsertTracker') {
+        await trackerRepository.upsert(operation.payload);
+      } else if (operation.type === 'deleteTracker') {
+        await trackerRepository.delete(operation.payload.id);
+      } else if (operation.type === 'upsertLog') {
+        await logRepository.upsert(operation.payload);
+      } else if (operation.type === 'deleteLog') {
+        await logRepository.delete(operation.payload.id);
+      } else {
+        await settingsRepository.save(operation.payload);
+      }
+    };
+    const syncService = new SyncService(
+      store,
+      cache,
+      queue,
+      executeOperation,
+      () => navigator.onLine
+    );
+    const cloudStateService = new CloudStateService(
+      userId,
+      store,
+      cache,
+      queue,
+      syncService,
+      trackerRepository,
+      logRepository,
+      settingsRepository,
+      () => crypto.randomUUID(),
+      () => new Date().toISOString()
+    );
+    const trackerService = new TrackerService(
+      userId,
+      store,
+      cache,
+      syncService,
+      () => crypto.randomUUID(),
+      () => new Date().toISOString()
+    );
+    const logService = new LogService(
+      userId,
+      store,
+      cache,
+      syncService,
+      () => crypto.randomUUID(),
+      () => new Date().toISOString()
+    );
+    const settingsService = new SettingsService(
+      userId,
+      store,
+      cache,
+      syncService,
+      () => crypto.randomUUID(),
+      () => new Date().toISOString()
+    );
+    let refreshPromise: Promise<void> | null = null;
+
+    // These services are composed here for the feature migrations that follow Task 8.
+    void trackerService;
+    void logService;
+    void settingsService;
+
+    return {
+      userId,
+      refreshCloud() {
+        if (!navigator.onLine) return Promise.resolve();
+        if (refreshPromise !== null) return refreshPromise;
+        updateConnection(true);
+        const hasPendingOperations = queue.load(userId).length > 0;
+        refreshPromise = cloudStateService.load({ hasPendingOperations })
+          .then(() => undefined)
+          .finally(() => {
+            refreshPromise = null;
+            updateConnection();
+          });
+        return refreshPromise;
+      }
+    };
+  };
+
+  const activateUser = async (user: SessionUser): Promise<void> => {
+    if (activeApplication?.userId !== user.id) {
+      store.replace(cache.load(user.id));
+      activeApplication = createUserApplication(user.id);
+      shell.applyTheme(store.getState().settings.theme);
+      updateConnection();
+    }
+    await activeApplication.refreshCloud();
+  };
+
+  const resetApplication = (): void => {
+    activeApplication = null;
+    store.reset();
+    shell.applyTheme('system');
+    updateConnection();
+  };
+
+  const authController = createAuthController({
+    async getSession() {
+      const user = await authService.getSession();
+      if (user) await activateUser(user);
+      return authSession(user);
+    },
+    signIn: (email, password) => authService.signIn(email, password),
+    signUp: (email, password) => authService.signUp(email, password),
+    signOut: () => authService.signOut(),
+    onSessionChange(listener) {
+      return authService.onSessionChange(user => {
+        if (user === null) {
+          listener(null);
+          return;
+        }
+        void activateUser(user)
+          .then(() => listener(authSession(user)))
+          .catch(handleFatalStartupError);
+      });
+    },
+    resetApplication
+  });
+
+  const handleOnline = (): void => {
+    updateConnection();
+    if (activeApplication) {
+      void activeApplication.refreshCloud().catch(handleFatalStartupError);
+    }
+  };
+  const handleOffline = (): void => updateConnection();
+  const systemTheme = matchMedia('(prefers-color-scheme: dark)');
+  const handleSystemThemeChange = (): void => {
+    if (store.getState().settings.theme === 'system') shell.applyTheme('system');
+  };
+  const stopStoreListener = store.subscribe(state => {
+    shell.applyTheme(state.settings.theme);
+    updateConnection();
+  });
+  const destroyApplication = (): void => {
+    authController.destroy();
+    shell.destroy();
+    stopStoreListener();
+    window.removeEventListener('online', handleOnline);
+    window.removeEventListener('offline', handleOffline);
+    systemTheme.removeEventListener('change', handleSystemThemeChange);
+    window.removeEventListener('beforeunload', destroyApplication);
+    activeApplication = null;
+    started = false;
+  };
+
+  window.addEventListener('online', handleOnline);
+  window.addEventListener('offline', handleOffline);
+  systemTheme.addEventListener('change', handleSystemThemeChange);
+  window.addEventListener('beforeunload', destroyApplication);
+  shell.applyTheme('system');
+  updateConnection();
+  await authController.initialize();
+}
+
+if (new URLSearchParams(window.location.search).get('runtime') === 'typed') {
+  void startApplication().catch(handleFatalStartupError);
+}
