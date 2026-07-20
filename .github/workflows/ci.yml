@@ -53,7 +53,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Start database-only Supabase stack
-        run: npx supabase start --exclude analytics,edge-runtime,functions,imgproxy,inbucket,kong,meta,realtime,rest,storage,studio,vector
+        run: npx supabase db start
       - name: Replay migrations
         run: npx supabase db reset --local --no-seed
       - name: Lint database

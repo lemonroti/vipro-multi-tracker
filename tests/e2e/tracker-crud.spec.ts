@@ -14,49 +14,59 @@ test.describe('tracker and log workflows', () => {
 
   test('creates, edits, and deletes a tracker', async ({ page }, testInfo) => {
     await navigation(page, testInfo).getByRole('link', { name: /Trackers/ }).click();
-    await page.getByRole('button', { name: '+ New tracker' }).click();
-    await page.getByLabel('Tracker name').fill('Meditation');
-    await page.getByLabel('Icon / emoji').fill('🧘');
-    await page.getByLabel('Unit').fill('minute');
-    await page.getByLabel('Quick values, separated by commas').fill('5, 10');
-    await page.getByRole('button', { name: 'Save tracker' }).click();
+    const trackerView = page.locator('#view-trackers');
+    await trackerView.getByRole('button', { name: '+ New tracker' }).click();
+    const createTrackerDialog = page.getByRole('dialog', { name: 'Create tracker' });
+    await createTrackerDialog.getByLabel('Tracker name').fill('Meditation');
+    await createTrackerDialog.getByLabel('Icon / emoji').fill('🧘');
+    await createTrackerDialog.getByLabel('Unit').fill('minute');
+    await createTrackerDialog
+      .getByLabel('Quick values, separated by commas')
+      .fill('5, 10');
+    await createTrackerDialog.getByRole('button', { name: 'Save tracker' }).click();
 
-    const tracker = page.locator('#trackerManageList .manage-card').filter({ hasText: 'Meditation' });
+    const tracker = trackerView.locator('.manage-card').filter({ hasText: 'Meditation' });
     await expect(tracker).toBeVisible();
     await tracker.getByRole('button', { name: 'Edit' }).click();
-    await page.getByLabel('Tracker name').fill('Mindfulness');
-    await page.getByRole('button', { name: 'Save tracker' }).click();
-    await expect(page.locator('#trackerManageList')).toContainText('Mindfulness');
+    const editTrackerDialog = page.getByRole('dialog', { name: 'Edit tracker' });
+    await editTrackerDialog.getByLabel('Tracker name').fill('Mindfulness');
+    await editTrackerDialog.getByRole('button', { name: 'Save tracker' }).click();
+    await expect(trackerView.locator('#trackerManageList')).toContainText('Mindfulness');
 
     page.once('dialog', dialog => dialog.accept());
-    await page.locator('#trackerManageList .manage-card')
+    await trackerView.locator('.manage-card')
       .filter({ hasText: 'Mindfulness' })
       .getByRole('button', { name: 'Delete' })
       .click();
-    await expect(page.locator('#trackerManageList')).not.toContainText('Mindfulness');
+    await expect(trackerView.locator('#trackerManageList')).not.toContainText('Mindfulness');
   });
 
   test('creates, edits, filters, and deletes a log', async ({ page }, testInfo) => {
-    await page.getByRole('button', { name: 'Add manual record' }).click();
-    await page.getByLabel('Tracker').selectOption('tracker-water');
-    await page.getByLabel('Value').fill('3');
-    await page.getByLabel('Note (optional)').fill('Gym bottle');
-    await page.getByRole('button', { name: 'Save record' }).click();
+    await page.locator('#view-dashboard')
+      .getByRole('button', { name: 'Add manual record' })
+      .click();
+    const addLogDialog = page.getByRole('dialog', { name: 'Add record' });
+    await addLogDialog.getByLabel('Tracker').selectOption('tracker-water');
+    await addLogDialog.getByLabel('Value').fill('3');
+    await addLogDialog.getByLabel('Note (optional)').fill('Gym bottle');
+    await addLogDialog.getByRole('button', { name: 'Save record' }).click();
 
     await navigation(page, testInfo).getByRole('link', { name: /History/ }).click();
-    await page.getByLabel('Search note').fill('Gym bottle');
-    const row = page.locator('#historyGroups .activity-row').filter({ hasText: 'Gym bottle' });
+    const historyView = page.locator('#view-history');
+    await historyView.getByLabel('Search note').fill('Gym bottle');
+    const row = historyView.locator('.activity-row').filter({ hasText: 'Gym bottle' });
     await expect(row).toBeVisible();
     await row.getByRole('button', { name: 'Edit' }).click();
-    await page.getByLabel('Note (optional)').fill('Large gym bottle');
-    await page.getByRole('button', { name: 'Save record' }).click();
-    await expect(page.locator('#historyGroups')).toContainText('Large gym bottle');
+    const editLogDialog = page.getByRole('dialog', { name: 'Edit record' });
+    await editLogDialog.getByLabel('Note (optional)').fill('Large gym bottle');
+    await editLogDialog.getByRole('button', { name: 'Save record' }).click();
+    await expect(historyView.locator('#historyGroups')).toContainText('Large gym bottle');
 
     page.once('dialog', dialog => dialog.accept());
-    await page.locator('#historyGroups .activity-row')
+    await historyView.locator('.activity-row')
       .filter({ hasText: 'Large gym bottle' })
       .getByRole('button', { name: 'Delete' })
       .click();
-    await expect(page.locator('#historyGroups')).not.toContainText('Large gym bottle');
+    await expect(historyView.locator('#historyGroups')).not.toContainText('Large gym bottle');
   });
 });
