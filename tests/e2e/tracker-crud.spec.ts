@@ -56,7 +56,7 @@ test.describe('tracker and log workflows', () => {
     await historyView.getByLabel('Search note').fill('Gym bottle');
     const row = historyView.locator('.activity-row').filter({ hasText: 'Gym bottle' });
     await expect(row).toBeVisible();
-    await row.getByRole('button', { name: 'Edit' }).click();
+    await row.getByRole('button', { name: 'Edit record' }).click();
     const editLogDialog = page.getByRole('dialog', { name: 'Edit record' });
     await editLogDialog.getByLabel('Note (optional)').fill('Large gym bottle');
     await editLogDialog.getByRole('button', { name: 'Save record' }).click();
@@ -65,7 +65,7 @@ test.describe('tracker and log workflows', () => {
     page.once('dialog', dialog => dialog.accept());
     await historyView.locator('.activity-row')
       .filter({ hasText: 'Large gym bottle' })
-      .getByRole('button', { name: 'Delete' })
+      .getByRole('button', { name: 'Delete record' })
       .click();
     await expect(historyView.locator('#historyGroups')).not.toContainText('Large gym bottle');
   });

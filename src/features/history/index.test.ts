@@ -123,6 +123,19 @@ describe('HistoryController', () => {
     );
   });
 
+  test('renders explicit accessible labels for record actions', () => {
+    const controller = createHistoryController(dependencies());
+
+    controller.render(state());
+
+    expect(
+      document.querySelector<HTMLButtonElement>('[data-edit-log]')?.getAttribute('aria-label')
+    ).toBe('Edit record');
+    expect(
+      document.querySelector<HTMLButtonElement>('[data-delete-log]')?.getAttribute('aria-label')
+    ).toBe('Delete record');
+  });
+
   test('reacts to all three filters while preserving their selected values', () => {
     const controller = createHistoryController(dependencies());
     controller.render(state());

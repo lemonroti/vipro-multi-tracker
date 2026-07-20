@@ -53,7 +53,7 @@ function activityRowHtml(
 ): string {
   const tracker = trackerById(state, log.trackerId);
   if (!tracker) return '';
-  return `<div class="activity-row"><div class="activity-main"><div class="activity-icon" style="color:${tracker.color}">${escapeHtml(tracker.icon)}</div><div style="min-width:0"><p class="activity-name">${escapeHtml(tracker.name)}</p><p class="activity-meta">${formatDateTime(log.occurredAt)}${log.note ? ` · ${escapeHtml(log.note)}` : ''}</p></div></div><div style="display:flex;align-items:center;gap:8px"><div class="activity-value">+${formatValue(log.value)} <span>${escapeHtml(pluralUnit(tracker.unit, log.value))}</span></div><div class="row-actions"><button class="row-action" data-edit-log="${escapeHtml(log.id)}" title="Edit">✎</button><button class="row-action" data-delete-log="${escapeHtml(log.id)}" title="Delete">✕</button></div></div></div>`;
+  return `<div class="activity-row"><div class="activity-main"><div class="activity-icon" style="color:${tracker.color}">${escapeHtml(tracker.icon)}</div><div style="min-width:0"><p class="activity-name">${escapeHtml(tracker.name)}</p><p class="activity-meta">${formatDateTime(log.occurredAt)}${log.note ? ` · ${escapeHtml(log.note)}` : ''}</p></div></div><div style="display:flex;align-items:center;gap:8px"><div class="activity-value">+${formatValue(log.value)} <span>${escapeHtml(pluralUnit(tracker.unit, log.value))}</span></div><div class="row-actions"><button class="row-action" data-edit-log="${escapeHtml(log.id)}" title="Edit" aria-label="Edit record">✎</button><button class="row-action" data-delete-log="${escapeHtml(log.id)}" title="Delete" aria-label="Delete record">✕</button></div></div></div>`;
 }
 
 export function createHistoryController(
