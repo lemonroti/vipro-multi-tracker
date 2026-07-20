@@ -252,4 +252,32 @@ describe('CloudStateService', () => {
     expect(state.settings).toEqual({ theme: 'dark', confirmDelete: false });
     expect(store.getState()).toEqual(state);
   });
+
+  it('reloads cloud state after a destructive failure without executing queued operations', async () => {
+    const events: string[] = [];
+    const execute: OperationExecutor = operation => {
+      events.push(`sync:${operation.id}`);
+      return Promise.resolve();
+    };
+    const { queue, trackers, settings, service } = createHarness({
+      trackers: [makeTracker()],
+      logs: [makeLog()],
+      settings: { theme: 'light', confirmDelete: true },
+      execute,
+      onTrackerList: () => events.push('load:trackers')
+    });
+    enqueue(queue, {
+      id: 'pending-settings', type: 'saveSettings',
+      payload: { theme: 'dark', confirmDelete: false },
+      createdAt: NOW, retryCount: 0
+    });
+
+    const state = await service.reload();
+
+    expect(events).toEqual(['load:trackers']);
+    expect(state.settings).toEqual({ theme: 'dark', confirmDelete: false });
+    expect(trackers.upserted).toEqual([]);
+    expect(settings.saved).toEqual([]);
+    expect(queue.load('user-1')).toHaveLength(1);
+  });
 });

@@ -1,4 +1,4 @@
-import type { AppState, Tracker, TrackingLog } from '../../domain/models';
+import type { AppState, Tracker } from '../../domain/models';
 import type { LogService } from '../../services/log-service';
 import type { OperationResult } from '../../services/sync-service';
 import type { AppStore } from '../../state/app-store';

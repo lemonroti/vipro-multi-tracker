@@ -1,18 +1,25 @@
 import type { AppState, ThemePreference, UserSettings } from '../../domain/models';
+import type { BackupServiceContract } from '../../services/backup-service';
 import type { SettingsService } from '../../services/settings-service';
 import type { AppStore } from '../../state/app-store';
 import type { ShellController } from '../shell';
+import { localDateKey } from '../../shared/dates';
 import { getElement } from '../../shared/dom';
 
-const MIGRATION_MESSAGE = 'Migration in progress';
-const DISABLED_ACTIONS = [
-  '#exportJson', '#exportCsv', '#importFile', '#loadSampleData', '#clearLogs', '#resetEverything'
-] as const;
+export interface DownloadRequest {
+  filename: string;
+  content: string;
+  type: string;
+}
 
 export interface SettingsControllerDependencies {
   service: Pick<SettingsService, 'save'>;
+  backup: BackupServiceContract;
   store: Pick<AppStore, 'getState'>;
   shell: Pick<ShellController, 'applyTheme' | 'showToast'>;
+  download(request: DownloadRequest): void;
+  confirmAction(message: string): boolean;
+  readFile(file: File): Promise<string>;
   syncNow(): Promise<void>;
   signOut(): Promise<void>;
   pendingCount(): number;
@@ -41,6 +48,12 @@ export function createSettingsController(
   const confirmToggle = getElement<HTMLButtonElement>('#confirmDeleteToggle');
   const syncButton = getElement<HTMLButtonElement>('#syncNow');
   const signOutButton = getElement<HTMLButtonElement>('#settingsSignOut');
+  const exportJsonButton = getElement<HTMLButtonElement>('#exportJson');
+  const exportCsvButton = getElement<HTMLButtonElement>('#exportCsv');
+  const importInput = getElement<HTMLInputElement>('#importFile');
+  const sampleButton = getElement<HTMLButtonElement>('#loadSampleData');
+  const clearLogsButton = getElement<HTMLButtonElement>('#clearLogs');
+  const resetButton = getElement<HTMLButtonElement>('#resetEverything');
 
   const save = async (settings: UserSettings): Promise<void> => {
     const result = await dependencies.service.save(settings);
@@ -84,23 +97,94 @@ export function createSettingsController(
   };
   const handleSyncClick = (): void => void handleSync();
   const handleSignOutClick = (): void => void handleSignOut();
+  const handleExportJson = (): void => {
+    dependencies.download({
+      filename: `my-tracker-backup-${localDateKey()}.json`,
+      content: dependencies.backup.exportJson(),
+      type: 'application/json'
+    });
+  };
+  const handleExportCsv = (): void => {
+    dependencies.download({
+      filename: `my-tracker-records-${localDateKey()}.csv`,
+      content: dependencies.backup.exportCsv(),
+      type: 'text/csv;charset=utf-8'
+    });
+  };
+  const showOperationResult = (
+    result: Awaited<ReturnType<BackupServiceContract['importJson']>>,
+    successMessage: string
+  ): void => {
+    dependencies.shell.showToast(result.ok ? successMessage : result.error.message);
+  };
+  const handleImport = async (): Promise<void> => {
+    const file = importInput.files?.[0];
+    if (!file) return;
+    importInput.disabled = true;
+    try {
+      const text = await dependencies.readFile(file);
+      if (!dependencies.confirmAction(
+        'Import this backup? This replaces your current cloud data.'
+      )) return;
+      showOperationResult(await dependencies.backup.importJson(text), 'Backup imported');
+    } catch (error) {
+      dependencies.shell.showToast(
+        error instanceof Error ? error.message : 'Could not read the backup file.'
+      );
+    } finally {
+      importInput.value = '';
+      importInput.disabled = false;
+    }
+  };
+  const runButtonOperation = async (
+    button: HTMLButtonElement,
+    operation: () => ReturnType<BackupServiceContract['clearLogs']>,
+    successMessage: string
+  ): Promise<void> => {
+    button.disabled = true;
+    try {
+      showOperationResult(await operation(), successMessage);
+    } finally {
+      button.disabled = false;
+    }
+  };
+  const handleSample = (): void => {
+    void runButtonOperation(
+      sampleButton,
+      () => dependencies.backup.loadSampleData(),
+      'Sample records added'
+    );
+  };
+  const handleClearLogs = (): void => {
+    if (!dependencies.confirmAction('Delete all records but keep trackers?')) return;
+    void runButtonOperation(
+      clearLogsButton,
+      () => dependencies.backup.clearLogs(),
+      'All records cleared'
+    );
+  };
+  const handleReset = (): void => {
+    if (!dependencies.confirmAction(
+      'Reset the full tracker? All records and custom trackers will be removed.'
+    )) return;
+    void runButtonOperation(
+      resetButton,
+      () => dependencies.backup.resetEverything(),
+      'Tracker reset'
+    );
+  };
+  const handleImportChange = (): void => void handleImport();
 
   themeSelect.addEventListener('change', handleTheme);
   confirmToggle.addEventListener('click', handleConfirmToggle);
   syncButton.addEventListener('click', handleSyncClick);
   signOutButton.addEventListener('click', handleSignOutClick);
-
-  DISABLED_ACTIONS.forEach(selector => {
-    const control = getElement<HTMLInputElement | HTMLButtonElement>(selector);
-    control.disabled = true;
-    control.title = MIGRATION_MESSAGE;
-  });
-  const importLabel = document.querySelector<HTMLLabelElement>('label[for="importFile"]');
-  if (importLabel) {
-    importLabel.title = MIGRATION_MESSAGE;
-    importLabel.setAttribute('aria-disabled', 'true');
-    importLabel.classList.add('busy');
-  }
+  exportJsonButton.addEventListener('click', handleExportJson);
+  exportCsvButton.addEventListener('click', handleExportCsv);
+  importInput.addEventListener('change', handleImportChange);
+  sampleButton.addEventListener('click', handleSample);
+  clearLogsButton.addEventListener('click', handleClearLogs);
+  resetButton.addEventListener('click', handleReset);
 
   return {
     render(state) {
@@ -121,6 +205,12 @@ export function createSettingsController(
       confirmToggle.removeEventListener('click', handleConfirmToggle);
       syncButton.removeEventListener('click', handleSyncClick);
       signOutButton.removeEventListener('click', handleSignOutClick);
+      exportJsonButton.removeEventListener('click', handleExportJson);
+      exportCsvButton.removeEventListener('click', handleExportCsv);
+      importInput.removeEventListener('change', handleImportChange);
+      sampleButton.removeEventListener('click', handleSample);
+      clearLogsButton.removeEventListener('click', handleClearLogs);
+      resetButton.removeEventListener('click', handleReset);
     }
   };
 }

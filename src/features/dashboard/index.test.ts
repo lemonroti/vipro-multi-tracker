@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+/* eslint-disable @typescript-eslint/unbound-method */
 
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { AppState, Tracker, TrackingLog } from '../../domain/models';

@@ -130,12 +130,9 @@ describe('LogController', () => {
       .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await settle();
 
-    expect(deps.service.add).toHaveBeenCalledWith({
-      trackerId: 'water',
-      value: 2,
-      occurredAt: expect.any(String),
-      note: ''
-    });
+    const added = deps.service.add.mock.calls[0]?.[0];
+    expect(added).toMatchObject({ trackerId: 'water', value: 2, note: '' });
+    expect(Number.isNaN(Date.parse(added?.occurredAt ?? ''))).toBe(false);
     expect(deps.shell.showToast).toHaveBeenCalledWith('Water: +2 recorded', true);
   });
 
@@ -173,9 +170,9 @@ describe('LogController', () => {
     const controller = createLogController(deps);
 
     await controller.addQuickLog('water', 2);
-    expect(deps.service.add).toHaveBeenCalledWith({
-      trackerId: 'water', value: 2, occurredAt: expect.any(String), note: ''
-    });
+    const added = deps.service.add.mock.calls[0]?.[0];
+    expect(added).toMatchObject({ trackerId: 'water', value: 2, note: '' });
+    expect(Number.isNaN(Date.parse(added?.occurredAt ?? ''))).toBe(false);
     expect(deps.shell.showToast).toHaveBeenCalledWith('Water: +2 recorded', true);
 
     controller.destroy();

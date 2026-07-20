@@ -14,6 +14,7 @@ import type { SyncService } from './sync-service';
 
 export interface CloudStateService {
   load(options: { hasPendingOperations: boolean }): Promise<AppState>;
+  reload(): Promise<AppState>;
 }
 
 function applyOperation(state: AppState, operation: OfflineOperation): AppState {
@@ -109,6 +110,25 @@ class CloudStateServiceImplementation implements CloudStateService {
       });
     }
 
+    const state = remainingOperations.reduce(applyOperation, cloudState);
+    this.store.replace(state);
+    this.cache.save(this.userId, state);
+    return this.store.getState();
+  }
+
+  async reload(): Promise<AppState> {
+    const remainingOperations = this.queue.load(this.userId);
+    const [trackers, logs, settings] = await Promise.all([
+      this.trackerRepository.list(),
+      this.logRepository.listAll(),
+      this.settingsRepository.get()
+    ]);
+    const cloudState = normalizeState({
+      version: 3,
+      trackers,
+      logs,
+      settings: settings ?? blankState().settings
+    });
     const state = remainingOperations.reduce(applyOperation, cloudState);
     this.store.replace(state);
     this.cache.save(this.userId, state);

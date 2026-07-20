@@ -84,11 +84,26 @@ export class SupabaseTrackerRepository implements TrackerRepository {
     if (error) throwRepositoryError(error);
   }
 
+  async insertMany(trackers: Tracker[]): Promise<void> {
+    const { error } = await this.client
+      .from('trackers')
+      .insert(trackers.map(tracker => trackerToRow(tracker, this.userId)));
+    if (error) throwRepositoryError(error);
+  }
+
   async delete(id: string): Promise<void> {
     const { error } = await this.client
       .from('trackers')
       .delete()
       .eq('id', id)
+      .eq('user_id', this.userId);
+    if (error) throwRepositoryError(error);
+  }
+
+  async deleteAll(): Promise<void> {
+    const { error } = await this.client
+      .from('trackers')
+      .delete()
       .eq('user_id', this.userId);
     if (error) throwRepositoryError(error);
   }
@@ -124,6 +139,13 @@ export class SupabaseLogRepository implements LogRepository {
       .from('tracking_logs')
       .upsert(logToRow(log, this.userId), { onConflict: 'id' })
       .eq('user_id', this.userId);
+    if (error) throwRepositoryError(error);
+  }
+
+  async insertMany(logs: TrackingLog[]): Promise<void> {
+    const { error } = await this.client
+      .from('tracking_logs')
+      .insert(logs.map(log => logToRow(log, this.userId)));
     if (error) throwRepositoryError(error);
   }
 

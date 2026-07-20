@@ -3,12 +3,13 @@ import { createAuthController, type AuthSession } from './features/auth';
 import { createDashboardController } from './features/dashboard';
 import { createHistoryController } from './features/history';
 import { createLogController } from './features/logs';
-import { createSettingsController } from './features/settings';
+import { createSettingsController, type DownloadRequest } from './features/settings';
 import { createShellController } from './features/shell';
 import { createTrackerController } from './features/trackers';
 import { createAppStore } from './state/app-store';
 import { createAuthService, type SessionUser } from './services/auth-service';
 import { UserCache } from './services/cache';
+import { BackupService } from './services/backup-service';
 import { CloudStateService } from './services/cloud-state-service';
 import { LogService } from './services/log-service';
 import { OfflineQueue } from './services/offline-queue';
@@ -38,6 +39,18 @@ function authSession(user: SessionUser | null): AuthSession | null {
   return user.email === undefined
     ? { user: { id: user.id } }
     : { user: { id: user.id, email: user.email } };
+}
+
+function downloadFile(request: DownloadRequest): void {
+  const blob = new Blob([request.content], { type: request.type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = request.filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 500);
 }
 
 export function handleFatalStartupError(error: unknown): void {
@@ -143,6 +156,19 @@ export async function startApplication(): Promise<void> {
         });
       return refreshPromise;
     };
+    const backupService = new BackupService({
+      userId,
+      store,
+      cache,
+      queue,
+      trackers: trackerRepository,
+      logs: logRepository,
+      settings: settingsRepository,
+      reloadCloudState: () => cloudStateService.reload().then(() => undefined),
+      createId: () => crypto.randomUUID(),
+      now: () => new Date().toISOString(),
+      isOnline: () => navigator.onLine
+    });
     const logController = createLogController({
       service: logService,
       store,
@@ -158,8 +184,12 @@ export async function startApplication(): Promise<void> {
     });
     const settingsController = createSettingsController({
       service: settingsService,
+      backup: backupService,
       store,
       shell,
+      download: downloadFile,
+      confirmAction: message => window.confirm(message),
+      readFile: file => file.text(),
       syncNow: refreshCloud,
       signOut: () => authService.signOut(),
       pendingCount: () => queue.load(userId).length,
