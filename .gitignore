@@ -8,6 +8,7 @@ node_modules/
 # Tool output
 npm-debug.log*
 supabase/.temp/
+.superpowers/
 
 # Operating system files
 .DS_Store
