@@ -1,0 +1,18 @@
+# Normalize text files to LF in the repository and working tree.
+* text=auto eol=lf
+
+# Keep Windows command scripts compatible with native tooling.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Do not apply line-ending conversion to binary assets.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.zip binary

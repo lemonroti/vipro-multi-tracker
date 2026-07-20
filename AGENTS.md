@@ -23,7 +23,7 @@ Install contributor tooling with `npm install`. The app remains build-free. Serv
 python -m http.server 8080
 ```
 
-Open `http://localhost:8080`. `npm run commitlint` checks the latest commit. Use `npm run release:first:dry` for the initial release preview and `npm run release:dry` thereafter. Run `git diff --check` before committing. GitHub Pages deploys from the `main` branch root.
+Open `http://localhost:8080`. `npm run commitlint` checks the latest commit. Use `npm run release:dry` for release previews; do not rerun the completed first-release workflow. Run `git diff --check` before committing. GitHub Pages deploys from the `main` branch root.
 
 ## Coding Style & Naming Conventions
 
@@ -35,7 +35,7 @@ There is no automated test framework yet. Manually verify authentication, tracke
 
 ## Commit & Pull Request Guidelines
 
-Use Conventional Commits, enforced by Husky: `feat: add cloud sync status`, `fix: prevent duplicate offline records`, or `docs: update setup instructions`. Mark incompatible changes with `!` or a `BREAKING CHANGE:` footer. Keep commits focused. Pull requests should explain the change, list manual checks, link issues, include screenshots for visual work, and note Supabase schema or RLS dependencies.
+Use Conventional Commits, enforced by Husky: `feat: add cloud sync status`, `fix: prevent duplicate offline records`, or `docs: update setup instructions`. Mark incompatible changes with `!` or a `BREAKING CHANGE:` footer. Keep Git tags as `vX.Y.Z` and title GitHub Releases `Version X.Y.Z`. Keep commits focused. Pull requests should explain the change, list manual checks, link issues, include screenshots for visual work, and note Supabase schema or RLS dependencies.
 
 ## Security & Configuration
 
