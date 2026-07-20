@@ -20,7 +20,7 @@ export const trackerSchema: z.ZodType<Tracker> = z.object({
 
 export const trackingLogSchema: z.ZodType<TrackingLog> = z.object({
   id: z.string(),
-  trackerId: z.string(),
+  trackerId: z.string().min(1),
   value: z.number().finite().positive(),
   occurredAt: z.string(),
   note: z.string(),
@@ -51,6 +51,8 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 function stringify(value: unknown): string {
+  if (!value) return '';
+
   if (
     typeof value === 'string'
     || typeof value === 'number'
