@@ -2,7 +2,10 @@ import type { OfflineOperation } from './domain/operations';
 import { createAuthController, type AuthSession } from './features/auth';
 import { createDashboardController } from './features/dashboard';
 import { createHistoryController } from './features/history';
+import { createLogController } from './features/logs';
+import { createSettingsController } from './features/settings';
 import { createShellController } from './features/shell';
+import { createTrackerController } from './features/trackers';
 import { createAppStore } from './state/app-store';
 import { createAuthService, type SessionUser } from './services/auth-service';
 import { UserCache } from './services/cache';
@@ -65,7 +68,8 @@ export async function startApplication(): Promise<void> {
     });
   };
 
-  const createUserApplication = (userId: string): ActiveUserApplication => {
+  const createUserApplication = (user: SessionUser): ActiveUserApplication => {
+    const userId = user.id;
     const trackerRepository = new SupabaseTrackerRepository(client, userId);
     const logRepository = new SupabaseLogRepository(client, userId);
     const settingsRepository = new SupabaseSettingsRepository(client, userId);
@@ -126,60 +130,77 @@ export async function startApplication(): Promise<void> {
       () => new Date().toISOString()
     );
     let refreshPromise: Promise<void> | null = null;
-
-    void trackerService;
-    void settingsService;
+    const refreshCloud = (): Promise<void> => {
+      if (!navigator.onLine) return Promise.resolve();
+      if (refreshPromise !== null) return refreshPromise;
+      updateConnection(true);
+      const hasPendingOperations = queue.load(userId).length > 0;
+      refreshPromise = cloudStateService.load({ hasPendingOperations })
+        .then(() => undefined)
+        .finally(() => {
+          refreshPromise = null;
+          updateConnection();
+        });
+      return refreshPromise;
+    };
+    const logController = createLogController({
+      service: logService,
+      store,
+      shell
+    });
+    const trackerController = createTrackerController({
+      service: trackerService,
+      store,
+      shell,
+      openLog(trackerId) {
+        logController.openModal({ trackerId });
+      }
+    });
+    const settingsController = createSettingsController({
+      service: settingsService,
+      store,
+      shell,
+      syncNow: refreshCloud,
+      signOut: () => authService.signOut(),
+      pendingCount: () => queue.load(userId).length,
+      isOnline: () => navigator.onLine,
+      ...(user.email === undefined ? {} : { accountEmail: user.email })
+    });
 
     const dashboardController = createDashboardController({
-      async addQuickLog(trackerId, value) {
-        await logService.add({
-          trackerId,
-          value,
-          occurredAt: new Date().toISOString(),
-          note: ''
-        });
+      addQuickLog: (trackerId, value) => logController.addQuickLog(trackerId, value),
+      openCustomLog(trackerId) {
+        logController.openModal({ trackerId });
       },
-      openCustomLog() {
-        shell.openModal('logModal');
-      },
-      openTrackerEditor() {
-        shell.openModal('trackerModal');
+      openTrackerEditor(trackerId) {
+        trackerController.openModal(trackerId);
       }
     });
     const historyController = createHistoryController({
-      openLogEditor() {
-        shell.openModal('logModal');
+      openLogEditor(logId) {
+        logController.openModal({ logId });
       },
-      async deleteLog(logId) {
-        await logService.delete(logId);
-      }
+      deleteLog: logId => logController.deleteLog(logId)
     });
     const renderFeatures = (state: ReturnType<typeof store.getState>): void => {
       dashboardController.render(state);
       historyController.render(state);
+      trackerController.render(state);
+      settingsController.render(state);
     };
     const stopFeatureListener = store.subscribe(renderFeatures);
     renderFeatures(store.getState());
 
     return {
       userId,
-      refreshCloud() {
-        if (!navigator.onLine) return Promise.resolve();
-        if (refreshPromise !== null) return refreshPromise;
-        updateConnection(true);
-        const hasPendingOperations = queue.load(userId).length > 0;
-        refreshPromise = cloudStateService.load({ hasPendingOperations })
-          .then(() => undefined)
-          .finally(() => {
-            refreshPromise = null;
-            updateConnection();
-          });
-        return refreshPromise;
-      },
+      refreshCloud,
       destroy() {
         stopFeatureListener();
         dashboardController.destroy();
         historyController.destroy();
+        trackerController.destroy();
+        logController.destroy();
+        settingsController.destroy();
       }
     };
   };
@@ -188,7 +209,7 @@ export async function startApplication(): Promise<void> {
     if (activeApplication?.userId !== user.id) {
       activeApplication?.destroy();
       store.replace(cache.load(user.id));
-      activeApplication = createUserApplication(user.id);
+      activeApplication = createUserApplication(user);
       shell.applyTheme(store.getState().settings.theme);
       updateConnection();
     }
