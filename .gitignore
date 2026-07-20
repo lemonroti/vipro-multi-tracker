@@ -8,6 +8,8 @@ node_modules/
 # Tool output
 npm-debug.log*
 dist/
+playwright-report/
+test-results/
 supabase/.temp/
 .superpowers/
 

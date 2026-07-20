@@ -26,6 +26,20 @@ npm run dev
 Use the URL printed by Vite. The typed application remains available in shadow mode with
 `?runtime=typed` until the legacy parity checks are complete.
 
+Run the local code-quality and unit-test checks with:
+
+```bash
+npm run typecheck
+npm run lint
+npm run test
+npm run build
+```
+
+Browser tests use deterministic development-only fixtures and never contact production
+Supabase. After installing Chromium with `npx playwright install chromium`, run them with
+`npm run test:e2e`. Installing the browser locally is optional because GitHub Actions runs the
+complete browser suite in the cloud.
+
 ## Supabase schema workflow
 
 The `supabase/` directory versions the database schema and is safe to commit. It does not contain
@@ -36,6 +50,11 @@ npx supabase start
 npx supabase db reset --local
 npx supabase db lint --local
 ```
+
+Local Docker is optional. The CI workflow starts a database-only Supabase stack on a standard
+GitHub-hosted runner, replays every migration, lints the database, and always stops the stack.
+This keeps the heavy database check off contributor PCs. The CLI is pinned in `package.json`, so
+use the repository command through `npx supabase` rather than downloading an unpinned version.
 
 Create each future schema change as a migration, review the generated SQL, then replay the complete
 local chain before committing it:
@@ -72,6 +91,22 @@ npx supabase db push
 Never run `db reset --linked` against production. Never commit access tokens, database passwords,
 service-role keys, or environment files.
 
+## Continuous integration and deployment
+
+Pull requests and pushes to `dev` or `main` run typechecking, linting, unit tests, deterministic
+Chromium browser tests, a production build, and the database migration replay in GitHub Actions.
+These checks require no production credentials or Supabase project access.
+
+GitHub Pages deploys only from pushes to `main` or a manual run of the Pages workflow. The `dev`
+branch never deploys. Before the first deployment, create these public GitHub repository variables
+under **Settings → Secrets and variables → Actions → Variables**:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+
+Use only the public project URL and publishable key. Do not put a service-role key, database
+password, access token, or other secret in repository variables or workflow files.
+
 ## Releases
 
 Commits follow the Conventional Commits format and are checked by Husky. Establish the initial `v0.1.0` baseline once with `npm run release:first:dry`, review the preview, and then run `npm run release:first`. For later releases, use `npm run release:dry` before `npm run release`. Release commands update `CHANGELOG.md` and version files, create a release commit, and add a local Git tag; they do not push automatically.
@@ -82,6 +117,7 @@ Commits follow the Conventional Commits format and are checked by Husky. Establi
 2. Enable Email + Password signups.
 3. Disable email confirmation for the initial release.
 4. Set the Site URL and redirect URLs to the GitHub Pages URL.
-5. Enable GitHub Pages from the `main` branch root.
+5. Set Pages to use GitHub Actions; `.github/workflows/pages.yml` builds `dist/` and deploys only
+   from `main`.
 
 The frontend contains only the Supabase publishable key. Never commit secret or service-role keys.

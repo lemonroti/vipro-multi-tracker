@@ -1,4 +1,6 @@
 import type { OfflineOperation } from './domain/operations';
+import type { ApplicationRuntime } from './runtime/application-runtime';
+import { createProductionRuntime } from './runtime/application-runtime';
 import { createAuthController, type AuthSession } from './features/auth';
 import { createDashboardController } from './features/dashboard';
 import { createHistoryController } from './features/history';
@@ -7,19 +9,12 @@ import { createSettingsController, type DownloadRequest } from './features/setti
 import { createShellController } from './features/shell';
 import { createTrackerController } from './features/trackers';
 import { createAppStore } from './state/app-store';
-import { createAuthService, type SessionUser } from './services/auth-service';
+import type { SessionUser } from './services/auth-service';
 import { UserCache } from './services/cache';
 import { BackupService } from './services/backup-service';
 import { CloudStateService } from './services/cloud-state-service';
 import { LogService } from './services/log-service';
 import { OfflineQueue } from './services/offline-queue';
-import {
-  SupabaseBackupRepository,
-  SupabaseLogRepository,
-  SupabaseSettingsRepository,
-  SupabaseTrackerRepository
-} from './services/supabase-repositories';
-import { createSupabaseClient } from './services/supabase-client';
 import { SettingsService } from './services/settings-service';
 import { SyncService } from './services/sync-service';
 import { TrackerService } from './services/tracker-service';
@@ -34,6 +29,17 @@ interface ActiveUserApplication {
 }
 
 let started = false;
+
+async function resolveRuntime(): Promise<ApplicationRuntime> {
+  if (import.meta.env.DEV) {
+    const scenario = new URLSearchParams(window.location.search).get('fixture');
+    const fixtureModule = await import('./testing/browser-fixture');
+    if (fixtureModule.isBrowserFixtureScenario(scenario)) {
+      return fixtureModule.createBrowserFixture(scenario, localStorage);
+    }
+  }
+  return createProductionRuntime();
+}
 
 function authSession(user: SessionUser | null): AuthSession | null {
   if (user === null) return null;
@@ -64,8 +70,8 @@ export async function startApplication(): Promise<void> {
   if (started) return;
   started = true;
 
-  const client = createSupabaseClient();
-  const authService = createAuthService(client);
+  const runtime = await resolveRuntime();
+  const authService = runtime.authService;
   const store = createAppStore();
   const cache = new UserCache(localStorage);
   const queue = new OfflineQueue(localStorage);
@@ -84,10 +90,11 @@ export async function startApplication(): Promise<void> {
 
   const createUserApplication = (user: SessionUser): ActiveUserApplication => {
     const userId = user.id;
-    const trackerRepository = new SupabaseTrackerRepository(client, userId);
-    const logRepository = new SupabaseLogRepository(client, userId);
-    const settingsRepository = new SupabaseSettingsRepository(client, userId);
-    const backupRepository = new SupabaseBackupRepository(client);
+    const repositories = runtime.createRepositories(userId);
+    const trackerRepository = repositories.trackers;
+    const logRepository = repositories.logs;
+    const settingsRepository = repositories.settings;
+    const backupRepository = repositories.backup;
     const executeOperation = async (operation: OfflineOperation): Promise<void> => {
       if (operation.type === 'upsertTracker') {
         await trackerRepository.upsert(operation.payload);
@@ -117,32 +124,32 @@ export async function startApplication(): Promise<void> {
       trackerRepository,
       logRepository,
       settingsRepository,
-      () => crypto.randomUUID(),
-      () => new Date().toISOString()
+      runtime.createId,
+      runtime.now
     );
     const trackerService = new TrackerService(
       userId,
       store,
       cache,
       syncService,
-      () => crypto.randomUUID(),
-      () => new Date().toISOString()
+      runtime.createId,
+      runtime.now
     );
     const logService = new LogService(
       userId,
       store,
       cache,
       syncService,
-      () => crypto.randomUUID(),
-      () => new Date().toISOString()
+      runtime.createId,
+      runtime.now
     );
     const settingsService = new SettingsService(
       userId,
       store,
       cache,
       syncService,
-      () => crypto.randomUUID(),
-      () => new Date().toISOString()
+      runtime.createId,
+      runtime.now
     );
     let refreshPromise: Promise<void> | null = null;
     const refreshCloud = (): Promise<void> => {
@@ -167,8 +174,8 @@ export async function startApplication(): Promise<void> {
       trackers: trackerRepository,
       logs: logRepository,
       reloadCloudState: () => cloudStateService.reload().then(() => undefined),
-      createId: () => crypto.randomUUID(),
-      now: () => new Date().toISOString(),
+      createId: runtime.createId,
+      now: runtime.now,
       isOnline: () => navigator.onLine
     });
     const logController = createLogController({

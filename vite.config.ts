@@ -7,6 +7,7 @@ export default defineConfig({
     sourcemap: true
   },
   test: {
-    environment: 'node'
+    environment: 'node',
+    include: ['src/**/*.test.ts', 'tests/**/*.test.ts']
   }
 });
