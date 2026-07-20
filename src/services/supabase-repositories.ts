@@ -156,7 +156,7 @@ export class SupabaseSettingsRepository implements SettingsRepository {
       .from('user_settings')
       .select('*')
       .eq('user_id', this.userId)
-      .maybeSingle();
+      .maybeSingle() as { data: unknown; error: SupabaseErrorLike | null };
     if (error) throwRepositoryError(error);
     if (!data) return null;
 

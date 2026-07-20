@@ -17,7 +17,8 @@ describe('readEnvironment', () => {
     [{ VITE_SUPABASE_URL: 'not-a-url', VITE_SUPABASE_PUBLISHABLE_KEY: 'key' }, 'invalid URL'],
     [{ VITE_SUPABASE_URL: 'https://example.supabase.co' }, 'missing key'],
     [{ VITE_SUPABASE_URL: 'https://example.supabase.co', VITE_SUPABASE_PUBLISHABLE_KEY: '' }, 'empty key']
-  ])('throws ConfigurationError for %s (%s)', (source, _description) => {
+  ])('throws ConfigurationError for %s (%s)', (source, description) => {
+    void description;
     expect(() => readEnvironment(source)).toThrow(ConfigurationError);
   });
 });

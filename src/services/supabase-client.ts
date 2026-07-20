@@ -16,5 +16,5 @@ export function createSupabaseClient(
         detectSessionInUrl: true
       }
     }
-  );
+  ) as SupabaseClient;
 }
