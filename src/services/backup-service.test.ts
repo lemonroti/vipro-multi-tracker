@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import type { AppState, Tracker, TrackingLog, UserSettings } from '../domain/models';
+import type { AppState, Tracker, TrackingLog } from '../domain/models';
 import { blankState } from '../domain/schemas';
 import { createAppStore } from '../state/app-store';
 import { BackupService } from './backup-service';
@@ -50,8 +50,9 @@ function createHarness(initial = state(), ids: string[] = [], online = true) {
   const storage = new MemoryStorage();
   const trackerBatches: Tracker[][] = [];
   const logBatches: TrackingLog[][] = [];
-  const settingsSaved: UserSettings[] = [];
+  const restoreCalls: AppState[] = [];
   let failLogBatch = 0;
+  let failRestore = false;
   const service = new BackupService({
     userId: 'user-1',
     store,
@@ -64,6 +65,15 @@ function createHarness(initial = state(), ids: string[] = [], online = true) {
     queue: {
       clear(userId: string) {
         events.push(`queue:clear:${userId}`);
+      }
+    },
+    backup: {
+      restoreState(next: AppState) {
+        restoreCalls.push(structuredClone(next));
+        events.push('backup:restore');
+        return failRestore
+          ? Promise.reject(new Error('restore failed'))
+          : Promise.resolve();
       }
     },
     trackers: {
@@ -91,13 +101,6 @@ function createHarness(initial = state(), ids: string[] = [], online = true) {
         return Promise.resolve();
       }
     },
-    settings: {
-      save(settings: UserSettings) {
-        settingsSaved.push(structuredClone(settings));
-        events.push('settings:save');
-        return Promise.resolve();
-      }
-    },
     reloadCloudState() {
       events.push('cloud:reload');
       return Promise.resolve();
@@ -107,8 +110,10 @@ function createHarness(initial = state(), ids: string[] = [], online = true) {
     isOnline: () => online
   });
   return {
-    service, store, storage, events, trackerBatches, logBatches, settingsSaved,
-    failOnLogBatch(batch: number) { failLogBatch = batch; }
+    service, store, storage, events, trackerBatches, logBatches,
+    restoreCalls,
+    failOnLogBatch(batch: number) { failLogBatch = batch; },
+    failOnRestore() { failRestore = true; }
   };
 }
 
@@ -169,51 +174,47 @@ describe('BackupService import', () => {
     expect(events).toEqual([]);
   });
 
-  test('remaps tracker and log IDs and preserves import source', async () => {
-    const { service, store, trackerBatches, logBatches, settingsSaved, events } =
+  test('remaps tracker and log IDs and restores the complete state atomically', async () => {
+    const { service, store, restoreCalls, events } =
       createHarness(state(), ['tracker-new', 'log-new']);
 
     const result = await service.importJson(backupText());
 
     expect(result).toEqual({ ok: true, queued: false });
-    expect(trackerBatches).toEqual([[tracker({ id: 'tracker-new', createdAt: NOW })]]);
-    expect(logBatches).toEqual([[log({
-      id: 'log-new', trackerId: 'tracker-new', source: 'import'
-    })]]);
-    expect(settingsSaved).toEqual([{ theme: 'system', confirmDelete: true }]);
-    expect(store.getState()).toEqual({
+    expect(restoreCalls).toEqual([{
       version: 3,
-      trackers: trackerBatches[0],
-      logs: logBatches[0],
+      trackers: [tracker({ id: 'tracker-new', createdAt: NOW })],
+      logs: [log({ id: 'log-new', trackerId: 'tracker-new', source: 'import' })],
       settings: { theme: 'system', confirmDelete: true }
-    });
+    }]);
+    expect(store.getState()).toEqual(restoreCalls[0]);
+    expect(events).not.toContain('logs:deleteAll');
+    expect(events).not.toContain('trackers:deleteAll');
     expect(events.slice(-2)).toEqual(['cache:save', 'queue:clear:user-1']);
   });
 
-  test('inserts imported records in batches of at most 500 rows', async () => {
+  test('sends large valid imports through one atomic restore call', async () => {
     const logs = Array.from({ length: 1001 }, (_, index) => log({ id: `log-${index}` }));
     const ids = [
       'tracker-new',
       ...Array.from({ length: logs.length }, (_, index) => `new-log-${index}`)
     ];
-    const { service, logBatches } = createHarness(state(), ids);
+    const { service, restoreCalls, events } = createHarness(state(), ids);
 
     const result = await service.importJson(backupText({ logs }));
 
     expect(result.ok).toBe(true);
-    expect(logBatches.map(batch => batch.length)).toEqual([500, 500, 1]);
+    expect(restoreCalls).toHaveLength(1);
+    expect(restoreCalls[0]?.logs).toHaveLength(1001);
+    expect(events.filter(event => event === 'backup:restore')).toHaveLength(1);
   });
 
-  test('reloads cloud state after a failed mutation and does not clear the queue', async () => {
-    const logs = Array.from({ length: 501 }, (_, index) => log({ id: `log-${index}` }));
-    const ids = [
-      'tracker-new',
-      ...Array.from({ length: logs.length }, (_, index) => `new-log-${index}`)
-    ];
-    const harness = createHarness(state(), ids);
-    harness.failOnLogBatch(2);
+  test('reloads cloud state after a failed atomic restore and does not mutate local state', async () => {
+    const initial = state({ settings: { theme: 'dark', confirmDelete: false } });
+    const harness = createHarness(initial, ['tracker-new', 'log-new']);
+    harness.failOnRestore();
 
-    const result = await harness.service.importJson(backupText({ logs }));
+    const result = await harness.service.importJson(backupText());
 
     expect(result).toEqual({
       ok: false,
@@ -221,6 +222,7 @@ describe('BackupService import', () => {
     });
     expect(harness.events.at(-1)).toBe('cloud:reload');
     expect(harness.events).not.toContain('queue:clear:user-1');
+    expect(harness.store.getState()).toEqual(initial);
   });
 });
 
@@ -268,7 +270,7 @@ describe('BackupService destructive helpers', () => {
   });
 
   test('reset restores the exact default trackers and settings', async () => {
-    const { service, store, trackerBatches, settingsSaved, events } = createHarness(
+    const { service, store, restoreCalls, events } = createHarness(
       state({ settings: { theme: 'dark', confirmDelete: false } }),
       ['default-smoking', 'default-prayer']
     );
@@ -276,7 +278,8 @@ describe('BackupService destructive helpers', () => {
     const result = await service.resetEverything();
 
     expect(result).toEqual({ ok: true, queued: false });
-    expect(trackerBatches[0]?.map(item => ({
+    expect(restoreCalls).toHaveLength(1);
+    expect(restoreCalls[0]?.trackers.map(item => ({
       id: item.id, name: item.name, unit: item.unit, icon: item.icon, color: item.color,
       goal: item.goal, presets: item.presets, active: item.active, sortOrder: item.sortOrder,
       createdAt: item.createdAt
@@ -292,10 +295,9 @@ describe('BackupService destructive helpers', () => {
         createdAt: NOW
       }
     ]);
-    expect(settingsSaved).toEqual([{ theme: 'system', confirmDelete: true }]);
     expect(store.getState()).toEqual({
       version: 3,
-      trackers: trackerBatches[0],
+      trackers: restoreCalls[0]?.trackers ?? [],
       logs: [],
       settings: { theme: 'system', confirmDelete: true }
     });

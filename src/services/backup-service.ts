@@ -1,12 +1,13 @@
 import { z } from 'zod';
 import { makeDefaultTrackers } from '../domain/defaults';
-import type { AppState, Tracker, TrackingLog, UserSettings } from '../domain/models';
+import type { AppState, Tracker, TrackingLog } from '../domain/models';
 import {
   trackerSchema,
   trackingLogSchema,
   userSettingsSchema
 } from '../domain/schemas';
 import type { AppStore } from '../state/app-store';
+import type { BackupRepository } from './repository-types';
 import type { OperationResult } from './sync-service';
 
 const BATCH_SIZE = 500;
@@ -37,9 +38,9 @@ export interface BackupServiceDependencies {
   store: Pick<AppStore, 'getState' | 'replace'>;
   cache: { save(userId: string, state: AppState): void };
   queue: { clear(userId: string): void };
+  backup: BackupRepository;
   trackers: BackupTrackerRepository;
   logs: BackupLogRepository;
-  settings: { save(settings: UserSettings): Promise<void> };
   reloadCloudState(): Promise<void>;
   createId(): string;
   now(): string;
@@ -249,17 +250,7 @@ export class BackupService implements BackupServiceContract {
   private async replaceEverything(replacement: AppState): Promise<OperationResult> {
     if (!this.dependencies.isOnline()) return offlineFailure();
     try {
-      await this.dependencies.logs.deleteAll();
-      await this.dependencies.trackers.deleteAll();
-      await insertBatches(
-        replacement.trackers,
-        batch => this.dependencies.trackers.insertMany(batch)
-      );
-      await insertBatches(
-        replacement.logs,
-        batch => this.dependencies.logs.insertMany(batch)
-      );
-      await this.dependencies.settings.save(replacement.settings);
+      await this.dependencies.backup.restoreState(replacement);
       this.saveLocalState(replacement, true);
       return { ok: true, queued: false };
     } catch {

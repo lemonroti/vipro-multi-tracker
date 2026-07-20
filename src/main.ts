@@ -14,6 +14,7 @@ import { CloudStateService } from './services/cloud-state-service';
 import { LogService } from './services/log-service';
 import { OfflineQueue } from './services/offline-queue';
 import {
+  SupabaseBackupRepository,
   SupabaseLogRepository,
   SupabaseSettingsRepository,
   SupabaseTrackerRepository
@@ -86,6 +87,7 @@ export async function startApplication(): Promise<void> {
     const trackerRepository = new SupabaseTrackerRepository(client, userId);
     const logRepository = new SupabaseLogRepository(client, userId);
     const settingsRepository = new SupabaseSettingsRepository(client, userId);
+    const backupRepository = new SupabaseBackupRepository(client);
     const executeOperation = async (operation: OfflineOperation): Promise<void> => {
       if (operation.type === 'upsertTracker') {
         await trackerRepository.upsert(operation.payload);
@@ -161,9 +163,9 @@ export async function startApplication(): Promise<void> {
       store,
       cache,
       queue,
+      backup: backupRepository,
       trackers: trackerRepository,
       logs: logRepository,
-      settings: settingsRepository,
       reloadCloudState: () => cloudStateService.reload().then(() => undefined),
       createId: () => crypto.randomUUID(),
       now: () => new Date().toISOString(),

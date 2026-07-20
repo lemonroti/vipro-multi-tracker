@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Tracker, TrackingLog, UserSettings } from '../domain/models';
+import type { AppState, Tracker, TrackingLog, UserSettings } from '../domain/models';
 import {
   RepositoryError,
+  type BackupRepository,
   type LogRepository,
   type RepositoryErrorKind,
   type SettingsRepository,
@@ -55,6 +56,27 @@ function mapRows<Row, Domain>(rows: Row[], mapper: (row: Row) => Domain): Domain
     return rows.map(mapper);
   } catch {
     throw new RepositoryError('validation', safeMessage('validation'));
+  }
+}
+
+function withoutUserId<Row extends { user_id: string }>(row: Row): Omit<Row, 'user_id'> {
+  const { user_id: userId, ...payload } = row;
+  void userId;
+  return payload;
+}
+
+export class SupabaseBackupRepository implements BackupRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async restoreState(state: AppState): Promise<void> {
+    const { error } = await this.client.rpc('restore_tracker_state', {
+      trackers_payload: state.trackers.map(tracker => (
+        withoutUserId(trackerToRow(tracker, ''))
+      )),
+      logs_payload: state.logs.map(log => withoutUserId(logToRow(log, ''))),
+      settings_payload: withoutUserId(settingsToRow(state.settings, ''))
+    });
+    if (error) throwRepositoryError(error);
   }
 }
 

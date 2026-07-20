@@ -1,4 +1,4 @@
-import type { Tracker, TrackingLog, UserSettings } from '../domain/models';
+import type { AppState, Tracker, TrackingLog, UserSettings } from '../domain/models';
 
 export type RepositoryErrorKind =
   | 'network'
@@ -32,4 +32,8 @@ export interface LogRepository {
 export interface SettingsRepository {
   get(): Promise<UserSettings | null>;
   save(settings: UserSettings): Promise<void>;
+}
+
+export interface BackupRepository {
+  restoreState(state: AppState): Promise<void>;
 }
