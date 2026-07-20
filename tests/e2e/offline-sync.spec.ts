@@ -13,7 +13,7 @@ test('keeps pending work offline and drains it after reconnecting', async ({ con
       }
     });
   });
-  await page.goto('/?runtime=typed&fixture=offline-pending');
+  await page.goto('/?fixture=offline-pending');
 
   await expect(page.locator('#app')).toBeVisible();
   await expect(page.locator('#offlineBanner')).toBeVisible();

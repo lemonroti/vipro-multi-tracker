@@ -8,7 +8,7 @@ test.describe('authentication visibility', () => {
       if (url.hostname !== '127.0.0.1') externalRequests.push(request.url());
     });
 
-    await page.goto('/?runtime=typed&fixture=signed-out');
+    await page.goto('/?fixture=signed-out');
     await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
     await expect(page.locator('#app')).toBeHidden();
 
@@ -23,7 +23,7 @@ test.describe('authentication visibility', () => {
   });
 
   test('loads an empty account through the real default-seeding flow', async ({ page }) => {
-    await page.goto('/?runtime=typed&fixture=signed-in-empty');
+    await page.goto('/?fixture=signed-in-empty');
 
     await expect(page.locator('#app')).toBeVisible();
     await expect(page.locator('#statActiveTrackers')).toHaveText('2');
@@ -31,7 +31,7 @@ test.describe('authentication visibility', () => {
   });
 
   test('shows a safe startup message for repository failures', async ({ page }) => {
-    await page.goto('/?runtime=typed&fixture=repository-error');
+    await page.goto('/?fixture=repository-error');
 
     await expect(page.locator('#authScreen')).toBeVisible();
     await expect(page.locator('#authMessage')).toHaveText(

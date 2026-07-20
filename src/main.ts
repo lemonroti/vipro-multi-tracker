@@ -323,6 +323,4 @@ export async function startApplication(): Promise<void> {
   await authController.initialize();
 }
 
-if (new URLSearchParams(window.location.search).get('runtime') === 'typed') {
-  void startApplication().catch(handleFatalStartupError);
-}
+void startApplication().catch(handleFatalStartupError);

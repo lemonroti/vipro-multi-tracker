@@ -23,8 +23,7 @@ Start the Vite development server:
 npm run dev
 ```
 
-Use the URL printed by Vite. The typed application remains available in shadow mode with
-`?runtime=typed` until the legacy parity checks are complete.
+Use the URL printed by Vite. `src/main.ts` is the only application entry point.
 
 Run the local code-quality and unit-test checks with:
 
@@ -32,13 +31,31 @@ Run the local code-quality and unit-test checks with:
 npm run typecheck
 npm run lint
 npm run test
+npm run test:e2e
 npm run build
+git diff --check
 ```
 
 Browser tests use deterministic development-only fixtures and never contact production
 Supabase. After installing Chromium with `npx playwright install chromium`, run them with
 `npm run test:e2e`. Installing the browser locally is optional because GitHub Actions runs the
 complete browser suite in the cloud.
+
+## Application architecture
+
+- `src/domain/` contains validated application models, schemas, defaults, and offline operations.
+- `src/state/` owns the in-memory application store.
+- `src/services/` contains auth, persistence, cache, queue, sync, cloud loading, and backup logic.
+- `src/features/` contains DOM controllers for auth, shell, dashboard, history, trackers, logs, and settings.
+- `src/runtime/` composes the production Supabase adapters behind application interfaces.
+- `src/testing/` contains development-only deterministic browser fixtures.
+- `src/styles/` contains the responsive application styles.
+- `tests/e2e/` contains Playwright browser flows; `tests/migrations.test.ts` verifies migration contracts.
+- `supabase/migrations/` is the versioned PostgreSQL schema history.
+
+Vite compiles the application to `dist/`. GitHub Pages deploys that generated directory; do not
+edit or commit `dist/` directly. Only `main` deploys production. The `dev` branch runs verification
+but never deploys.
 
 ## Supabase schema workflow
 

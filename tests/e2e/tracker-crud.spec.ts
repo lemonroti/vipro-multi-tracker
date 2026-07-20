@@ -8,7 +8,7 @@ function navigation(page: Page, testInfo: TestInfo) {
 
 test.describe('tracker and log workflows', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/?runtime=typed&fixture=populated');
+    await page.goto('/?fixture=populated');
     await expect(page.locator('#app')).toBeVisible();
   });
 
