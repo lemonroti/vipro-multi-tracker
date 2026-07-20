@@ -1,0 +1,14 @@
+node_modules/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Tool output
+npm-debug.log*
+supabase/.temp/
+
+# Operating system files
+.DS_Store
+Thumbs.db
