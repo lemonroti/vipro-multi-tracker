@@ -1,11 +1,7 @@
 const scripts = [
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
-  'app-1.js',
-  'app-2.js',
-  'app-3a.js',
-  'app-3b.js',
-  'app-4a.js',
-  'app-4b.js'
+  ...['app-1.js', 'app-2.js', 'app-3a.js', 'app-3b.js', 'app-4a.js', 'app-4b.js']
+    .map(file => new URL(file, import.meta.url).href)
 ];
 
 function loadScript(src) {
