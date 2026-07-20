@@ -1,5 +1,7 @@
 import type { OfflineOperation } from './domain/operations';
 import { createAuthController, type AuthSession } from './features/auth';
+import { createDashboardController } from './features/dashboard';
+import { createHistoryController } from './features/history';
 import { createShellController } from './features/shell';
 import { createAppStore } from './state/app-store';
 import { createAuthService, type SessionUser } from './services/auth-service';
@@ -23,6 +25,7 @@ const FATAL_STARTUP_MESSAGE =
 interface ActiveUserApplication {
   userId: string;
   refreshCloud(): Promise<void>;
+  destroy(): void;
 }
 
 let started = false;
@@ -124,10 +127,39 @@ export async function startApplication(): Promise<void> {
     );
     let refreshPromise: Promise<void> | null = null;
 
-    // These services are composed here for the feature migrations that follow Task 8.
     void trackerService;
-    void logService;
     void settingsService;
+
+    const dashboardController = createDashboardController({
+      async addQuickLog(trackerId, value) {
+        await logService.add({
+          trackerId,
+          value,
+          occurredAt: new Date().toISOString(),
+          note: ''
+        });
+      },
+      openCustomLog() {
+        shell.openModal('logModal');
+      },
+      openTrackerEditor() {
+        shell.openModal('trackerModal');
+      }
+    });
+    const historyController = createHistoryController({
+      openLogEditor() {
+        shell.openModal('logModal');
+      },
+      async deleteLog(logId) {
+        await logService.delete(logId);
+      }
+    });
+    const renderFeatures = (state: ReturnType<typeof store.getState>): void => {
+      dashboardController.render(state);
+      historyController.render(state);
+    };
+    const stopFeatureListener = store.subscribe(renderFeatures);
+    renderFeatures(store.getState());
 
     return {
       userId,
@@ -143,12 +175,18 @@ export async function startApplication(): Promise<void> {
             updateConnection();
           });
         return refreshPromise;
+      },
+      destroy() {
+        stopFeatureListener();
+        dashboardController.destroy();
+        historyController.destroy();
       }
     };
   };
 
   const activateUser = async (user: SessionUser): Promise<void> => {
     if (activeApplication?.userId !== user.id) {
+      activeApplication?.destroy();
       store.replace(cache.load(user.id));
       activeApplication = createUserApplication(user.id);
       shell.applyTheme(store.getState().settings.theme);
@@ -158,6 +196,7 @@ export async function startApplication(): Promise<void> {
   };
 
   const resetApplication = (): void => {
+    activeApplication?.destroy();
     activeApplication = null;
     store.reset();
     shell.applyTheme('system');
@@ -203,6 +242,7 @@ export async function startApplication(): Promise<void> {
     updateConnection();
   });
   const destroyApplication = (): void => {
+    activeApplication?.destroy();
     authController.destroy();
     shell.destroy();
     stopStoreListener();
