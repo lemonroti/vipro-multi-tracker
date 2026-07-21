@@ -19,3 +19,9 @@ supabase/.temp/
 # Operating system files
 .DS_Store
 Thumbs.db
+
+# Generated Flutter artifacts
+apps/flutter/.dart_tool/
+apps/flutter/build/
+apps/flutter/android/local.properties
+apps/flutter/.flutter-plugins*
