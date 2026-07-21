@@ -284,12 +284,13 @@ class _HistoryTab extends StatelessWidget {
           initialData: const [],
           builder: (context, snapshot) {
             final logs = snapshot.data ?? const [];
-            if (logs.isEmpty)
+            if (logs.isEmpty) {
               return const _EmptyState(
                 icon: Icons.history,
                 title: 'No records yet',
                 message: 'Quick-record from Home to create your first entry.',
               );
+            }
             return ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: logs.length,
