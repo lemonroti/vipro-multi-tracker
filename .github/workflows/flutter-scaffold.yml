@@ -45,6 +45,7 @@ jobs:
           text = text.replace('if (value == null) return;', 'if (value == null) {\n                    return;\n                  }')
           text = text.replace('if (date == null || !context.mounted) return;', 'if (date == null || !context.mounted) {\n            return;\n          }')
           text = text.replace('if (time == null) return;', 'if (time == null) {\n            return;\n          }')
+          text = text.replace("            if (logs.isEmpty)\n              return const _EmptyState(\n                icon: Icons.history,\n                title: 'No records yet',\n                message: 'Quick-record from Home to create your first entry.',\n              );", "            if (logs.isEmpty) {\n              return const _EmptyState(\n                icon: Icons.history,\n                title: 'No records yet',\n                message: 'Quick-record from Home to create your first entry.',\n              );\n            }")
           shell.write_text(text)
 
           test = Path('apps/flutter/test/widget_test.dart')
