@@ -38,7 +38,7 @@ class TrackerServiceImplementation implements TrackerService {
 
     if (input.id !== undefined) {
       const existing = before.trackers.find(candidate => candidate.id === input.id);
-      if (!existing) return validationError();
+      if (existing?.inputType !== 'unit') return validationError();
       tracker = {
         ...existing,
         ...input,

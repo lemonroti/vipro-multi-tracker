@@ -1,4 +1,4 @@
-import type { AppState, Tracker } from '../../domain/models';
+import type { AppState, UnitTracker } from '../../domain/models';
 import type { LogService } from '../../services/log-service';
 import type { OperationResult } from '../../services/sync-service';
 import type { AppStore } from '../../state/app-store';
@@ -27,8 +27,10 @@ export interface LogController {
   destroy(): void;
 }
 
-function trackerById(state: Readonly<AppState>, id: string): Tracker | undefined {
-  return state.trackers.find(tracker => tracker.id === id);
+function trackerById(state: Readonly<AppState>, id: string): UnitTracker | undefined {
+  return state.trackers.find((tracker): tracker is UnitTracker => (
+    tracker.id === id && tracker.inputType === 'unit'
+  ));
 }
 
 function successful(
@@ -64,26 +66,34 @@ export function createLogController(
   const populateTrackerOptions = (): void => {
     const state = dependencies.store.getState();
     const previous = trackerSelect.value;
-    trackerSelect.innerHTML = state.trackers.map(tracker => (
+    const trackers = state.trackers.filter((tracker): tracker is UnitTracker => (
+      tracker.inputType === 'unit'
+    ));
+    trackerSelect.innerHTML = trackers.map(tracker => (
       `<option value="${escapeHtml(tracker.id)}">${escapeHtml(tracker.name)} (${escapeHtml(tracker.unit)})</option>`
     )).join('');
-    if (state.trackers.some(tracker => tracker.id === previous)) trackerSelect.value = previous;
+    if (trackers.some(tracker => tracker.id === previous)) trackerSelect.value = previous;
   };
 
   const openModal = (options: OpenLogOptions = {}): void => {
     const state = dependencies.store.getState();
-    if (state.trackers.length === 0) {
+    const trackers = state.trackers.filter((tracker): tracker is UnitTracker => (
+      tracker.inputType === 'unit'
+    ));
+    if (trackers.length === 0) {
       dependencies.shell.showToast('Create a tracker first');
       dependencies.shell.switchView('trackers');
       return;
     }
     const log = options.logId
-      ? state.logs.find(candidate => candidate.id === options.logId)
+      ? state.logs.find(candidate => (
+          candidate.id === options.logId && candidate.recordType === 'unit'
+        ))
       : undefined;
     getElement('#logModalTitle').textContent = log ? 'Edit record' : 'Add record';
     getElement<HTMLInputElement>('#logEditId').value = log?.id ?? '';
     populateTrackerOptions();
-    trackerSelect.value = log?.trackerId ?? options.trackerId ?? state.trackers[0]?.id ?? '';
+    trackerSelect.value = log?.trackerId ?? options.trackerId ?? trackers[0]?.id ?? '';
     const tracker = trackerById(state, trackerSelect.value);
     getElement<HTMLInputElement>('#logValue').value = String(
       log?.value ?? tracker?.presets[0] ?? 1

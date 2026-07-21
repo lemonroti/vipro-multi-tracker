@@ -13,9 +13,24 @@ const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 
 export const trackerOptionSchema: z.ZodType<TrackerOption> = z.object({
   id: z.string(),
-  label: z.string().min(1).max(80),
+  label: z.string().trim().min(1).max(80),
   sortOrder: z.number().int(),
   createdAt: z.string()
+});
+
+const trackerOptionsSchema = z.array(trackerOptionSchema).min(1).max(8).superRefine((options, context) => {
+  const labels = new Set<string>();
+  options.forEach((option, index) => {
+    const normalized = option.label.toLowerCase();
+    if (labels.has(normalized)) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Option labels must be unique.',
+        path: [index, 'label']
+      });
+    }
+    labels.add(normalized);
+  });
 });
 
 const trackerBaseFields = {
@@ -43,7 +58,7 @@ export const optionTrackerSchema = z.object({
   unit: z.null(),
   goal: z.null(),
   presets: z.tuple([]),
-  options: z.array(trackerOptionSchema).min(1).max(8)
+  options: trackerOptionsSchema
 });
 
 export const trackerSchema: z.ZodType<Tracker> = z.discriminatedUnion('inputType', [

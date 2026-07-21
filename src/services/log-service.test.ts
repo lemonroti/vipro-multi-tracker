@@ -26,6 +26,23 @@ const INPUT: LogInput = {
   note: 'Morning'
 };
 
+function makeOptionTracker() {
+  return {
+    id: 'option-tracker',
+    name: 'Routine',
+    inputType: 'option' as const,
+    unit: null,
+    icon: '✦',
+    color: '#334155',
+    goal: null,
+    presets: [] as [],
+    options: [{ id: 'sleep', label: 'Sleep', sortOrder: 0, createdAt: NOW }],
+    active: true,
+    sortOrder: 1,
+    createdAt: NOW
+  };
+}
+
 function makeLog(overrides: Partial<UnitTrackingLog> = {}): UnitTrackingLog {
   return {
     id: 'log-1',
@@ -68,6 +85,66 @@ function createHarness(
 }
 
 describe('LogService', () => {
+  it('rejects adding a Unit log to an Option tracker', async () => {
+    const initial: AppState = {
+      ...blankState(),
+      trackers: [makeOptionTracker()]
+    };
+    const { store, execute, service } = createHarness(initial);
+
+    const result = await service.add({ ...INPUT, trackerId: 'option-tracker' });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { kind: 'validation', message: 'Invalid log input.' }
+    });
+    expect(store.getState()).toEqual(initial);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('rejects moving a Unit log to an Option tracker', async () => {
+    const initial = makeState();
+    initial.trackers.push(makeOptionTracker());
+    const { store, execute, service } = createHarness(initial);
+
+    const result = await service.update('log-1', {
+      ...INPUT,
+      trackerId: 'option-tracker'
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { kind: 'validation', message: 'Invalid log input.' }
+    });
+    expect(store.getState()).toEqual(initial);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('rejects editing an existing Option log with Unit input', async () => {
+    const initial = makeState([]);
+    initial.trackers.push(makeOptionTracker());
+    initial.logs.push({
+      id: 'option-log',
+      trackerId: 'option-tracker',
+      recordType: 'option',
+      value: null,
+      optionId: 'sleep',
+      occurredAt: NOW,
+      note: '',
+      source: 'website'
+    });
+    const { store, execute, service } = createHarness(initial);
+
+    const result = await service.update('option-log', INPUT);
+
+    expect(result).toEqual({
+      ok: false,
+      error: { kind: 'validation', message: 'Invalid log input.' }
+    });
+    expect(store.getState()).toEqual(initial);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it('adds a log and persists its exact operation', async () => {
     const { store, execute, service } = createHarness(makeState([]), undefined, [
       'log-new', 'operation-add'

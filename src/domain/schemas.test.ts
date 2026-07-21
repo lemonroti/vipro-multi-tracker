@@ -103,6 +103,28 @@ describe('normalizeState', () => {
     });
   });
 
+  it('trims Option labels and rejects normalized case-insensitive duplicates', () => {
+    const now = '2026-07-21T00:00:00.000Z';
+    const optionState = (labels: string[]) => ({
+      version: 4,
+      trackers: [{
+        id: 'tracker-1', name: 'Routine', inputType: 'option', unit: null,
+        icon: '✦', color: '#334155', goal: null, presets: [], active: true,
+        sortOrder: 0, createdAt: now,
+        options: labels.map((label, sortOrder) => ({
+          id: `option-${sortOrder}`, label, sortOrder, createdAt: now
+        }))
+      }],
+      logs: [],
+      settings: { theme: 'system', confirmDelete: true }
+    });
+
+    expect(normalizeState(optionState(['  Sleep  '])).trackers[0]?.options[0]?.label)
+      .toBe('Sleep');
+    expect(() => normalizeState(optionState(['Sleep', ' sleep '])))
+      .toThrow();
+  });
+
   it('normalizes a valid tracker and removes non-positive logs', () => {
     const state = normalizeState({
       trackers: [{ id: 'tracker-1', name: 'Water', unit: 'ml', presets: [250] }],
@@ -227,6 +249,44 @@ describe('trackerSchema', () => {
         createdAt: '2026-07-21T00:00:00.000Z'
       }]
     }).success).toBe(true);
+  });
+
+  it('trims persisted Option labels', () => {
+    const result = trackerSchema.parse({
+      id: 'tracker-1', name: 'Routine', inputType: 'option', unit: null,
+      icon: '✦', color: '#334155', goal: null, presets: [], active: true,
+      sortOrder: 0, createdAt: '2026-07-21T00:00:00.000Z',
+      options: [{
+        id: 'option-1', label: '  Sleep  ', sortOrder: 0,
+        createdAt: '2026-07-21T00:00:00.000Z'
+      }]
+    });
+
+    expect(result.options[0]?.label).toBe('Sleep');
+  });
+
+  it('rejects empty, oversized, and case-insensitively duplicate Option labels', () => {
+    const optionTracker = {
+      id: 'tracker-1', name: 'Routine', inputType: 'option' as const, unit: null,
+      icon: '✦', color: '#334155', goal: null, presets: [] as [], active: true,
+      sortOrder: 0, createdAt: '2026-07-21T00:00:00.000Z'
+    };
+    const option = (id: string, label: string, sortOrder: number) => ({
+      id, label, sortOrder, createdAt: '2026-07-21T00:00:00.000Z'
+    });
+
+    expect(trackerSchema.safeParse({
+      ...optionTracker,
+      options: [option('empty', '   ', 0)]
+    }).success).toBe(false);
+    expect(trackerSchema.safeParse({
+      ...optionTracker,
+      options: [option('long', ` ${'a'.repeat(81)} `, 0)]
+    }).success).toBe(false);
+    expect(trackerSchema.safeParse({
+      ...optionTracker,
+      options: [option('one', 'Sleep', 0), option('two', ' sleep ', 1)]
+    }).success).toBe(false);
   });
 });
 

@@ -157,6 +157,36 @@ describe('BackupService exports', () => {
 });
 
 describe('BackupService import', () => {
+  test('imports a strict legacy version 3 backup as version 4 Unit data', async () => {
+    const legacy = JSON.stringify({
+      version: 3,
+      trackers: [{
+        id: 'legacy-tracker', name: 'Water', unit: 'glass', icon: '💧',
+        color: '#2563eb', goal: 8, presets: [1], active: true,
+        sortOrder: 0, createdAt: NOW
+      }],
+      logs: [{
+        id: 'legacy-log', trackerId: 'legacy-tracker', value: 1,
+        occurredAt: NOW, note: '', source: 'website'
+      }],
+      settings: { theme: 'system', confirmDelete: true }
+    });
+    const { service, restoreCalls } = createHarness(
+      state(),
+      ['tracker-new', 'log-new']
+    );
+
+    const result = await service.importJson(legacy);
+
+    expect(result).toEqual({ ok: true, queued: false });
+    expect(restoreCalls).toEqual([{
+      version: 4,
+      trackers: [tracker({ id: 'tracker-new' })],
+      logs: [log({ id: 'log-new', trackerId: 'tracker-new', source: 'import' })],
+      settings: { theme: 'system', confirmDelete: true }
+    }]);
+  });
+
   test('validates the complete import before the first destructive repository call', async () => {
     const { service, events } = createHarness();
     const invalid = state();

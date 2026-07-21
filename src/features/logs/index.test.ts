@@ -17,6 +17,13 @@ const LOG: TrackingLog = {
   occurredAt: new Date(2026, 6, 21, 14, 30).toISOString(),
   note: ' Afternoon ', source: 'website'
 };
+const OPTION_TRACKER: Tracker = {
+  id: 'routine', name: 'Routine', inputType: 'option', unit: null, icon: '✦',
+  color: '#334155', goal: null, presets: [], options: [{
+    id: 'sleep', label: 'Sleep', sortOrder: 0, createdAt: '2026-07-20T00:00:00.000Z'
+  }],
+  active: true, sortOrder: 1, createdAt: '2026-07-20T00:00:00.000Z'
+};
 
 function state(overrides: Partial<AppState> = {}): AppState {
   return {
@@ -79,6 +86,17 @@ async function settle(): Promise<void> {
 
 describe('LogController', () => {
   beforeEach(installDom);
+
+  test('excludes Option trackers from the legacy numeric log selector', () => {
+    const deps = dependencies(state({ trackers: [TRACKER, OPTION_TRACKER] }));
+    const controller = createLogController(deps);
+
+    controller.populateTrackerOptions();
+
+    const options = [...document.querySelectorAll<HTMLOptionElement>('#logTracker option')];
+    expect(options.map(option => option.value)).toEqual(['water']);
+    expect(document.querySelector('#logTracker')?.textContent).not.toContain('Routine');
+  });
 
   test('populates tracker options and preserves an edited log using local datetime input', () => {
     const deps = dependencies();

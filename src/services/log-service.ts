@@ -34,7 +34,8 @@ class LogServiceImplementation implements LogService {
 
   async add(input: LogInput): Promise<OperationResult> {
     const before = this.store.getState();
-    if (!before.trackers.some(tracker => tracker.id === input.trackerId)) {
+    const tracker = before.trackers.find(candidate => candidate.id === input.trackerId);
+    if (tracker?.inputType !== 'unit') {
       return validationError();
     }
 
@@ -53,9 +54,10 @@ class LogServiceImplementation implements LogService {
   async update(id: string, input: LogInput): Promise<OperationResult> {
     const before = this.store.getState();
     const existing = before.logs.find(log => log.id === id);
+    const tracker = before.trackers.find(candidate => candidate.id === input.trackerId);
     if (
-      !existing
-      || !before.trackers.some(tracker => tracker.id === input.trackerId)
+      existing?.recordType !== 'unit'
+      || tracker?.inputType !== 'unit'
     ) {
       return validationError();
     }

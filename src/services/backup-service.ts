@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { makeDefaultTrackers } from '../domain/defaults';
 import type { AppState, Tracker, TrackingLog } from '../domain/models';
 import {
+  normalizeState,
   trackerSchema,
   trackingLogSchema,
   userSettingsSchema
@@ -14,11 +15,42 @@ const BATCH_SIZE = 500;
 const IMPORT_ERROR_MESSAGE = 'This file is not a valid My Tracker JSON backup.';
 const PERSISTENCE_ERROR_MESSAGE = 'Could not safely replace cloud data.';
 const CSV_HEADERS = ['ID', 'Tracker', 'Value', 'Unit', 'Occurred At', 'Note'] as const;
+const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 
 const backupSchema = z.object({
   version: z.literal(4),
   trackers: z.array(trackerSchema),
   logs: z.array(trackingLogSchema),
+  settings: userSettingsSchema,
+  exportedAt: z.string().optional()
+}).strict();
+
+const legacyTrackerSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  unit: z.string(),
+  icon: z.string(),
+  color: z.string().regex(COLOR_PATTERN),
+  goal: z.number().finite().nullable(),
+  presets: z.array(z.number().finite().positive()).max(8),
+  active: z.boolean(),
+  sortOrder: z.number().int(),
+  createdAt: z.string()
+}).strict();
+
+const legacyTrackingLogSchema = z.object({
+  id: z.string(),
+  trackerId: z.string().min(1),
+  value: z.number().finite().positive(),
+  occurredAt: z.string(),
+  note: z.string(),
+  source: z.string()
+}).strict();
+
+const legacyBackupSchema = z.object({
+  version: z.literal(3),
+  trackers: z.array(legacyTrackerSchema),
+  logs: z.array(legacyTrackingLogSchema),
   settings: userSettingsSchema,
   exportedAt: z.string().optional()
 }).strict();
@@ -152,14 +184,20 @@ export class BackupService implements BackupServiceContract {
       return validationFailure();
     }
 
-    const result = backupSchema.safeParse(parsed);
-    if (!result.success) return validationFailure();
-    const imported: AppState = {
-      version: 4,
-      trackers: result.data.trackers,
-      logs: result.data.logs,
-      settings: result.data.settings
-    };
+    const currentResult = backupSchema.safeParse(parsed);
+    let imported: AppState;
+    if (currentResult.success) {
+      imported = {
+        version: 4,
+        trackers: currentResult.data.trackers,
+        logs: currentResult.data.logs,
+        settings: currentResult.data.settings
+      };
+    } else {
+      const legacyResult = legacyBackupSchema.safeParse(parsed);
+      if (!legacyResult.success) return validationFailure();
+      imported = normalizeState(legacyResult.data);
+    }
     if (!relationshipsAreValid(imported)) return validationFailure();
 
     const idMap = new Map<string, string>();

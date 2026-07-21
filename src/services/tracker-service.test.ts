@@ -77,6 +77,34 @@ function createHarness(
 }
 
 describe('TrackerService', () => {
+  it('rejects Unit edits to an existing Option tracker', async () => {
+    const optionTracker = {
+      id: 'option-tracker',
+      name: 'Routine',
+      inputType: 'option' as const,
+      unit: null,
+      icon: '✦',
+      color: '#334155',
+      goal: null,
+      presets: [] as [],
+      options: [{ id: 'sleep', label: 'Sleep', sortOrder: 0, createdAt: NOW }],
+      active: true,
+      sortOrder: 0,
+      createdAt: NOW
+    };
+    const initial: AppState = { ...blankState(), trackers: [optionTracker] };
+    const { store, execute, service } = createHarness(initial);
+
+    const result = await service.save({ ...INPUT, id: optionTracker.id });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { kind: 'validation', message: 'Invalid tracker input.' }
+    });
+    expect(store.getState()).toEqual(initial);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it('creates a tracker with deterministic identity and persists its exact operation', async () => {
     const { store, execute, service } = createHarness(blankState(), undefined, [
       'tracker-new', 'operation-create'
