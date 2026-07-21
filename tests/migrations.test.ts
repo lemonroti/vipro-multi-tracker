@@ -11,7 +11,7 @@ function migration(name: string): string {
 
 describe('Supabase schema migrations', () => {
   test('the baseline preserves the verified production constraint and trigger names', () => {
-    const sql = migration('20260720221743_remote_schema.sql');
+    const sql = migration('20260717160052_create_multi_tracker_schema.sql');
 
     expect(sql).toContain('constraint trackers_user_id_name_key unique');
     expect(sql).toContain('create trigger trackers_set_updated_at');
@@ -20,7 +20,7 @@ describe('Supabase schema migrations', () => {
   });
 
   test('the restore RPC validates required values before its first delete', () => {
-    const sql = migration('20260720221757_atomic_restore.sql');
+    const sql = migration('20260721001520_atomic_restore.sql');
     const firstDelete = sql.indexOf('delete from public.tracking_logs');
     const requiredValidation = [
       "jsonb_typeof(trackers_payload) is distinct from 'array'",
@@ -45,7 +45,7 @@ describe('Supabase schema migrations', () => {
   });
 
   test('the restore RPC uses invoker rights and authenticated-only execution', () => {
-    const sql = migration('20260720221757_atomic_restore.sql');
+    const sql = migration('20260721001520_atomic_restore.sql');
 
     expect(sql).toContain('security invoker');
     expect(sql).not.toContain('security definer');
