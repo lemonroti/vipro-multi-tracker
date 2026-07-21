@@ -89,6 +89,7 @@ export class OfflineQueue {
     const nextEntityId = entityId(nextOperation);
     let operations = this.load(userId);
     let replacementIndex = -1;
+    let replacementPredecessors = new Set<OfflineOperation>();
 
     if (nextEntityId !== null) {
       const upsertType = matchingUpsertType(nextOperation);
@@ -96,6 +97,9 @@ export class OfflineQueue {
         queuedOperation.type === nextOperation.type
         && entityId(queuedOperation) === nextEntityId
       ));
+      if (replacementIndex >= 0) {
+        replacementPredecessors = new Set(operations.slice(0, replacementIndex));
+      }
       operations = operations.filter(queuedOperation => {
         const queuedEntityId = entityId(queuedOperation);
         const sameOperation = queuedOperation.type === nextOperation.type
@@ -119,6 +123,9 @@ export class OfflineQueue {
     const replacesUpsert = replacementIndex >= 0
       && (nextOperation.type === 'upsertTracker' || nextOperation.type === 'upsertLog');
     if (replacesUpsert) {
+      const adjustedReplacementIndex = operations.filter(operation => (
+        replacementPredecessors.has(operation)
+      )).length;
       const dependentLogIndex = nextOperation.type === 'upsertTracker'
         && nextOperation.payload.inputType === 'option'
         ? operations.findIndex(operation => (
@@ -128,7 +135,9 @@ export class OfflineQueue {
           ))
         : -1;
       operations.splice(
-        dependentLogIndex >= 0 ? dependentLogIndex : Math.min(replacementIndex, operations.length),
+        dependentLogIndex >= 0
+          ? Math.min(adjustedReplacementIndex, dependentLogIndex)
+          : adjustedReplacementIndex,
         0,
         nextOperation
       );

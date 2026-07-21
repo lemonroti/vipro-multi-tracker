@@ -286,6 +286,24 @@ describe('OfflineQueue', () => {
     ).map(operation => operation.id)).toEqual(['tracker-replacement', 'exercise-log']);
   });
 
+  it('preserves a replacement tracker position ahead of unrelated queued work', () => {
+    const storage = new MemoryStorage();
+    const queue = new OfflineQueue(storage);
+    const initial = optionTrackerUpsert('tracker-initial', ['sleep', 'exercise'], '2026-07-21T08:00:00.000Z');
+    const unrelated = settingsSave('unrelated-settings', '2026-07-21T08:01:00.000Z');
+    const exerciseLog = optionLogUpsert('exercise-log', 'exercise', '2026-07-21T08:02:00.000Z');
+    storage.setItem(`${QUEUE_KEY_PREFIX}user-a`, JSON.stringify([initial, unrelated, exerciseLog]));
+
+    expect(queue.enqueue(
+      'user-a',
+      optionTrackerUpsert('tracker-replacement', ['sleep', 'exercise'], '2026-07-21T08:03:00.000Z')
+    ).map(operation => operation.id)).toEqual([
+      'tracker-replacement',
+      'unrelated-settings',
+      'exercise-log'
+    ]);
+  });
+
   it('normalizes legacy v3 Unit tracker and log upserts from the existing queue key', () => {
     const storage = new MemoryStorage();
     const queue = new OfflineQueue(storage);
