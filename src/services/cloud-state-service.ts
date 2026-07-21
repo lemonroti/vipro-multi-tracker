@@ -67,6 +67,35 @@ function applyOperation(state: AppState, operation: OfflineOperation): AppState 
   return { ...state, settings: operation.payload };
 }
 
+function relationshipsAreValid(state: AppState): boolean {
+  const trackerIds = state.trackers.map(tracker => tracker.id);
+  const logIds = state.logs.map(log => log.id);
+  const optionIds = state.trackers.flatMap(tracker => tracker.options.map(option => option.id));
+  if (
+    new Set(trackerIds).size !== trackerIds.length
+    || new Set(logIds).size !== logIds.length
+    || new Set(optionIds).size !== optionIds.length
+  ) {
+    return false;
+  }
+
+  const trackers = new Map(state.trackers.map(tracker => [tracker.id, tracker]));
+  return state.logs.every(log => {
+    const owner = trackers.get(log.trackerId);
+    if (owner === undefined) return false;
+    if (log.recordType === 'unit') return owner.inputType === 'unit';
+    return owner.inputType === 'option'
+      && owner.options.some(option => option.id === log.optionId);
+  });
+}
+
+function validateRelationships(state: AppState): AppState {
+  if (!relationshipsAreValid(state)) {
+    throw new Error('Cloud state contains invalid tracker relationships.');
+  }
+  return state;
+}
+
 class CloudStateServiceImplementation implements CloudStateService {
   constructor(
     private readonly userId: string,
@@ -119,7 +148,7 @@ class CloudStateServiceImplementation implements CloudStateService {
       });
     }
 
-    const state = remainingOperations.reduce(applyOperation, cloudState);
+    const state = validateRelationships(remainingOperations.reduce(applyOperation, cloudState));
     this.store.replace(state);
     this.cache.save(this.userId, state);
     return this.store.getState();
@@ -138,7 +167,7 @@ class CloudStateServiceImplementation implements CloudStateService {
       logs,
       settings: settings ?? blankState().settings
     });
-    const state = remainingOperations.reduce(applyOperation, cloudState);
+    const state = validateRelationships(remainingOperations.reduce(applyOperation, cloudState));
     this.store.replace(state);
     this.cache.save(this.userId, state);
     return this.store.getState();

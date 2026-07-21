@@ -1,10 +1,14 @@
 import { z } from 'zod';
 import { makeDefaultTrackers } from '../domain/defaults';
-import type { AppState, Tracker, TrackingLog } from '../domain/models';
+import type { AppState, Tracker, TrackingLog, UnitTracker } from '../domain/models';
 import {
   normalizeState,
+  optionTrackerSchema,
+  optionTrackingLogSchema,
   trackerSchema,
   trackingLogSchema,
+  unitTrackerSchema,
+  unitTrackingLogSchema,
   userSettingsSchema
 } from '../domain/schemas';
 import type { AppStore } from '../state/app-store';
@@ -14,13 +18,25 @@ import type { OperationResult } from './sync-service';
 const BATCH_SIZE = 500;
 const IMPORT_ERROR_MESSAGE = 'This file is not a valid My Tracker JSON backup.';
 const PERSISTENCE_ERROR_MESSAGE = 'Could not safely replace cloud data.';
-const CSV_HEADERS = ['ID', 'Tracker', 'Value', 'Unit', 'Occurred At', 'Note'] as const;
+const CSV_HEADERS = [
+  'ID', 'Tracker', 'Record Type', 'Value', 'Unit', 'Option', 'Occurred At', 'Note'
+] as const;
 const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
+
+const strictTrackerSchema = z.discriminatedUnion('inputType', [
+  unitTrackerSchema.strict(),
+  optionTrackerSchema.strict()
+]);
+
+const strictTrackingLogSchema = z.discriminatedUnion('recordType', [
+  unitTrackingLogSchema.strict(),
+  optionTrackingLogSchema.strict()
+]);
 
 const backupSchema = z.object({
   version: z.literal(4),
-  trackers: z.array(trackerSchema),
-  logs: z.array(trackingLogSchema),
+  trackers: z.array(strictTrackerSchema),
+  logs: z.array(strictTrackingLogSchema),
   settings: userSettingsSchema,
   exportedAt: z.string().optional()
 }).strict();
@@ -126,8 +142,17 @@ function relationshipsAreValid(state: AppState): boolean {
   if (!hasUniqueNonemptyIds(state.trackers) || !hasUniqueNonemptyIds(state.logs)) {
     return false;
   }
-  const trackerIds = new Set(state.trackers.map(tracker => tracker.id));
-  return state.logs.every(item => trackerIds.has(item.trackerId));
+  const options = state.trackers.flatMap(tracker => tracker.options);
+  if (!hasUniqueNonemptyIds(options)) return false;
+
+  const trackers = new Map(state.trackers.map(tracker => [tracker.id, tracker]));
+  return state.logs.every(item => {
+    const owner = trackers.get(item.trackerId);
+    if (owner === undefined) return false;
+    if (item.recordType === 'unit') return owner.inputType === 'unit';
+    return owner.inputType === 'option'
+      && owner.options.some(option => option.id === item.optionId);
+  });
 }
 
 async function insertBatches<T>(
@@ -163,11 +188,16 @@ export class BackupService implements BackupServiceContract {
       [...CSV_HEADERS],
       ...logs.map(item => {
         const owner = trackers.get(item.trackerId);
+        const option = item.recordType === 'option' && owner?.inputType === 'option'
+          ? owner.options.find(candidate => candidate.id === item.optionId)
+          : undefined;
         return [
           item.id,
           owner?.name ?? '',
-          item.value ?? '',
-          owner?.unit ?? '',
+          item.recordType === 'unit' ? 'Unit' : 'Option',
+          item.recordType === 'unit' ? item.value : '',
+          item.recordType === 'unit' && owner?.inputType === 'unit' ? owner.unit : '',
+          item.recordType === 'option' ? option?.label ?? '' : '',
           item.occurredAt,
           item.note
         ];
@@ -200,14 +230,23 @@ export class BackupService implements BackupServiceContract {
     }
     if (!relationshipsAreValid(imported)) return validationFailure();
 
-    const idMap = new Map<string, string>();
+    const trackerIdMap = new Map<string, string>();
+    const optionIdMap = new Map<string, string>();
     const createdAt = this.dependencies.now();
     const trackers = imported.trackers.map((item, index) => {
       const id = this.dependencies.createId();
-      idMap.set(item.id, id);
+      trackerIdMap.set(item.id, id);
+      const options = item.inputType === 'option'
+        ? item.options.map(option => {
+            const optionId = this.dependencies.createId();
+            optionIdMap.set(option.id, optionId);
+            return { ...option, id: optionId };
+          })
+        : [];
       return trackerSchema.parse({
         ...item,
         id,
+        options,
         sortOrder: index,
         createdAt
       });
@@ -215,7 +254,8 @@ export class BackupService implements BackupServiceContract {
     const logs = imported.logs.map(item => trackingLogSchema.parse({
       ...item,
       id: this.dependencies.createId(),
-      trackerId: idMap.get(item.trackerId),
+      trackerId: trackerIdMap.get(item.trackerId),
+      optionId: item.recordType === 'option' ? optionIdMap.get(item.optionId) : null,
       source: 'import'
     }));
     const replacement: AppState = {
@@ -312,9 +352,12 @@ export class BackupService implements BackupServiceContract {
   }
 
   private makeSampleLogs(trackers: Tracker[]): TrackingLog[] {
-    const first = trackers[0];
+    const unitTrackers = trackers.filter((tracker): tracker is UnitTracker => (
+      tracker.inputType === 'unit'
+    ));
+    const first = unitTrackers[0];
     if (!first) return [];
-    const second = trackers[1] ?? first;
+    const second = unitTrackers[1] ?? first;
     const now = new Date(this.dependencies.now());
     const counts = [4, 7, 5, 8, 3, 6, 2];
     const secondValues = [10, 15, 20, 10, 30, 15, 25];

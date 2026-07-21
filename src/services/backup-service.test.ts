@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import type {
   AppState,
+  OptionTracker,
+  OptionTrackingLog,
   Tracker,
   TrackingLog,
   UnitTracker,
@@ -35,6 +37,23 @@ function log(overrides: Partial<UnitTrackingLog> = {}): UnitTrackingLog {
   return {
     id: 'log-a', trackerId: 'tracker-a', value: 1, occurredAt: NOW,
     note: '', source: 'website', recordType: 'unit', optionId: null, ...overrides
+  };
+}
+
+function optionTracker(overrides: Partial<OptionTracker> = {}): OptionTracker {
+  return {
+    id: 'tracker-option', name: 'Routine', unit: null, icon: '✦',
+    color: '#0f766e', goal: null, presets: [], inputType: 'option',
+    options: [{ id: 'option-sleep', label: 'Sleep', sortOrder: 0, createdAt: NOW }],
+    active: true, sortOrder: 0, createdAt: NOW, ...overrides
+  };
+}
+
+function optionLog(overrides: Partial<OptionTrackingLog> = {}): OptionTrackingLog {
+  return {
+    id: 'log-option', trackerId: 'tracker-option', value: null,
+    occurredAt: NOW, note: '', source: 'website', recordType: 'option',
+    optionId: 'option-sleep', ...overrides
   };
 }
 
@@ -149,9 +168,20 @@ describe('BackupService exports', () => {
     const { service } = createHarness(state({ logs: [older, newer] }));
 
     expect(service.exportCsv()).toBe([
-      'ID,Tracker,Value,Unit,Occurred At,Note',
-      'log-new,Water,2.5,glass,2026-07-21T09:00:00.000Z,"line one, ""quoted""\nline two"',
-      'log-old,Water,1,glass,2026-07-20T08:00:00.000Z,plain'
+      'ID,Tracker,Record Type,Value,Unit,Option,Occurred At,Note',
+      'log-new,Water,Unit,2.5,glass,,2026-07-21T09:00:00.000Z,"line one, ""quoted""\nline two"',
+      'log-old,Water,Unit,1,glass,,2026-07-20T08:00:00.000Z,plain'
+    ].join('\r\n'));
+  });
+
+  test('exports Option rows with labels and without numeric Unit fields', () => {
+    const routine = optionTracker();
+    const sleep = optionLog({ note: 'Rested' });
+    const { service } = createHarness(state({ trackers: [routine], logs: [sleep] }));
+
+    expect(service.exportCsv()).toBe([
+      'ID,Tracker,Record Type,Value,Unit,Option,Occurred At,Note',
+      'log-option,Routine,Option,,,Sleep,2026-07-21T08:00:00.000Z,Rested'
     ].join('\r\n'));
   });
 });
@@ -230,6 +260,87 @@ describe('BackupService import', () => {
     expect(events.slice(-2)).toEqual(['cache:save', 'queue:clear:user-1']);
   });
 
+  test('remaps version 4 tracker, option, and log IDs while preserving ownership', async () => {
+    const imported = state({
+      trackers: [optionTracker()],
+      logs: [optionLog()]
+    });
+    const { service, restoreCalls } = createHarness(
+      state(),
+      ['tracker-new', 'option-new', 'log-new']
+    );
+
+    const result = await service.importJson(JSON.stringify(imported));
+
+    expect(result).toEqual({ ok: true, queued: false });
+    expect(restoreCalls).toEqual([{
+      version: 4,
+      trackers: [optionTracker({
+        id: 'tracker-new',
+        options: [{ id: 'option-new', label: 'Sleep', sortOrder: 0, createdAt: NOW }]
+      })],
+      logs: [optionLog({
+        id: 'log-new', trackerId: 'tracker-new', optionId: 'option-new', source: 'import'
+      })],
+      settings: { theme: 'system', confirmDelete: true }
+    }]);
+  });
+
+  test('rejects Option records whose option belongs to another tracker before mutation', async () => {
+    const secondTracker = optionTracker({
+      id: 'tracker-second',
+      options: [{ id: 'option-exercise', label: 'Exercise', sortOrder: 0, createdAt: NOW }]
+    });
+    const invalid = state({
+      trackers: [optionTracker(), secondTracker],
+      logs: [optionLog({ optionId: 'option-exercise' })]
+    });
+    const { service, events } = createHarness(
+      state(),
+      ['tracker-first', 'tracker-second-new', 'log-new']
+    );
+
+    const result = await service.importJson(JSON.stringify(invalid));
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe('validation');
+    expect(events).toEqual([]);
+  });
+
+  test('rejects duplicate Option IDs before mutation', async () => {
+    const duplicate = optionTracker({
+      id: 'tracker-second',
+      options: [{ id: 'option-sleep', label: 'Awake', sortOrder: 0, createdAt: NOW }]
+    });
+    const { service, events } = createHarness(
+      state(),
+      ['tracker-first', 'tracker-second-new']
+    );
+
+    const result = await service.importJson(backupText({
+      trackers: [optionTracker(), duplicate],
+      logs: []
+    }));
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe('validation');
+    expect(events).toEqual([]);
+  });
+
+  test('rejects unknown version 4 tracker fields before mutation', async () => {
+    const current = JSON.parse(backupText()) as {
+      trackers: Array<Record<string, unknown>>;
+    };
+    current.trackers[0]!.legacyOnly = true;
+    const { service, events } = createHarness();
+
+    const result = await service.importJson(JSON.stringify(current));
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe('validation');
+    expect(events).toEqual([]);
+  });
+
   test('sends large valid imports through one atomic restore call', async () => {
     const logs = Array.from({ length: 1001 }, (_, index) => log({ id: `log-${index}` }));
     const ids = [
@@ -293,8 +404,30 @@ describe('BackupService destructive helpers', () => {
     expect(store.getState().logs).toEqual(logBatches.flat());
   });
 
+  test('skips Option trackers when generating Unit-only sample records', async () => {
+    const ids = Array.from({ length: 42 }, (_, index) => `sample-${index}`);
+    const unit = tracker({ id: 'tracker-unit' });
+    const option = optionTracker();
+    const { service, logBatches } = createHarness(state({
+      trackers: [option, unit],
+      logs: []
+    }), ids);
+
+    const result = await service.loadSampleData();
+
+    expect(result).toEqual({ ok: true, queued: false });
+    expect(logBatches.flat()).toHaveLength(42);
+    expect(logBatches.flat().every(item => (
+      item.recordType === 'unit' && item.trackerId === 'tracker-unit'
+    ))).toBe(true);
+  });
+
   test('clears logs while preserving trackers and settings', async () => {
-    const initial = state({ settings: { theme: 'dark', confirmDelete: false } });
+    const initial = state({
+      trackers: [tracker(), optionTracker()],
+      logs: [log(), optionLog()],
+      settings: { theme: 'dark', confirmDelete: false }
+    });
     const { service, store, events } = createHarness(initial);
 
     const result = await service.clearLogs();

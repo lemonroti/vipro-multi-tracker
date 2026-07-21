@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type {
   AppState,
+  OptionTracker,
+  OptionTrackingLog,
   Tracker,
   TrackingLog,
   UnitTracker,
@@ -110,6 +112,24 @@ function makeLog(overrides: Partial<UnitTrackingLog> = {}): UnitTrackingLog {
     id: 'log-remote', trackerId: 'tracker-remote', value: 1,
     occurredAt: NOW, note: '', source: 'website',
     recordType: 'unit', optionId: null, ...overrides
+  };
+}
+
+function makeOptionTracker(overrides: Partial<OptionTracker> = {}): OptionTracker {
+  return {
+    id: 'routine', name: 'Routine', icon: '✦', color: '#334155',
+    inputType: 'option', unit: null, goal: null, presets: [], active: true,
+    sortOrder: 0, createdAt: NOW,
+    options: [{ id: 'sleep', label: 'Sleep', sortOrder: 0, createdAt: NOW }],
+    ...overrides
+  };
+}
+
+function makeOptionLog(overrides: Partial<OptionTrackingLog> = {}): OptionTrackingLog {
+  return {
+    id: 'sleep-log', trackerId: 'routine', value: null,
+    occurredAt: NOW, note: '', source: 'website',
+    recordType: 'option', optionId: 'sleep', ...overrides
   };
 }
 
@@ -225,6 +245,38 @@ describe('CloudStateService', () => {
     expect(state.logs).toEqual([makeLog()]);
     expect(store.getState()).toEqual(state);
     expect(cache.load('user-1')).toEqual(state);
+  });
+
+  it('loads nested Option definitions and their discriminated records', async () => {
+    const optionTracker = makeOptionTracker();
+    const optionLog = makeOptionLog();
+    const { service } = createHarness({
+      trackers: [optionTracker],
+      logs: [optionLog],
+      settings: { theme: 'light', confirmDelete: true }
+    });
+
+    await expect(service.load({ hasPendingOperations: false })).resolves.toEqual({
+      version: 4,
+      trackers: [optionTracker],
+      logs: [optionLog],
+      settings: { theme: 'light', confirmDelete: true }
+    });
+  });
+
+  it('rejects orphan Option IDs without replacing local state', async () => {
+    const initial = { ...blankState(), trackers: [makeTracker({ id: 'cached' })] };
+    const { store, service } = createHarness({
+      initial,
+      trackers: [makeOptionTracker()],
+      logs: [makeOptionLog({ optionId: 'missing-option' })],
+      settings: { theme: 'light', confirmDelete: true }
+    });
+
+    await expect(service.load({ hasPendingOperations: false })).rejects.toThrow(
+      'Cloud state contains invalid tracker relationships.'
+    );
+    expect(store.getState()).toEqual(initial);
   });
 
   it('syncs before loading and reapplies every operation that remains pending', async () => {

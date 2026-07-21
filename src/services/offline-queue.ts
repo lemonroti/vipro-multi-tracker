@@ -45,9 +45,14 @@ export class OfflineQueue {
     const nextOperation = offlineOperationSchema.parse(operation);
     const nextEntityId = entityId(nextOperation);
     let operations = this.load(userId);
+    let replacementIndex = -1;
 
     if (nextEntityId !== null) {
       const upsertType = matchingUpsertType(nextOperation);
+      replacementIndex = operations.findIndex(queuedOperation => (
+        queuedOperation.type === nextOperation.type
+        && entityId(queuedOperation) === nextEntityId
+      ));
       operations = operations.filter(queuedOperation => {
         const queuedEntityId = entityId(queuedOperation);
         const sameOperation = queuedOperation.type === nextOperation.type
@@ -59,7 +64,13 @@ export class OfflineQueue {
       });
     }
 
-    operations.push(nextOperation);
+    const replacesUpsert = replacementIndex >= 0
+      && (nextOperation.type === 'upsertTracker' || nextOperation.type === 'upsertLog');
+    if (replacesUpsert) {
+      operations.splice(replacementIndex, 0, nextOperation);
+    } else {
+      operations.push(nextOperation);
+    }
     return this.save(userId, operations);
   }
 

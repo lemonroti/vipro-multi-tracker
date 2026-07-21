@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { AppState } from '../domain/models';
 import { blankState } from '../domain/schemas';
 import { UserCache } from './cache';
 
@@ -70,5 +71,30 @@ describe('UserCache', () => {
     expect(cache.load('user-b')).toEqual(blankState());
     expect(storage.getItem('vipro-multi-tracker-cache-v3-user-a')).not.toBeNull();
     expect(storage.getItem('vipro-multi-tracker-cache-v3-user-b')).toBeNull();
+  });
+
+  it('round-trips version 4 Option trackers and records without losing relationships', () => {
+    const cache = new UserCache(new MemoryStorage());
+    const state: AppState = {
+      ...blankState(),
+      trackers: [{
+        id: 'routine', name: 'Routine', icon: '✦', color: '#334155',
+        inputType: 'option', unit: null, goal: null, presets: [], active: true,
+        sortOrder: 0, createdAt: '2026-07-21T08:00:00.000Z',
+        options: [{
+          id: 'sleep', label: 'Sleep', sortOrder: 0,
+          createdAt: '2026-07-21T08:00:00.000Z'
+        }]
+      }],
+      logs: [{
+        id: 'log-sleep', trackerId: 'routine', recordType: 'option',
+        value: null, optionId: 'sleep', occurredAt: '2026-07-21T09:00:00.000Z',
+        note: '', source: 'website'
+      }]
+    };
+
+    cache.save('user-a', state);
+
+    expect(cache.load('user-a')).toEqual(state);
   });
 });

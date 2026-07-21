@@ -89,6 +89,61 @@ function trackerDelete(operationId: string, entityId: string, createdAt: string)
   };
 }
 
+function optionTrackerUpsert(
+  operationId: string,
+  optionIds: string[],
+  createdAt: string
+): OfflineOperation {
+  return {
+    id: operationId,
+    type: 'upsertTracker',
+    payload: {
+      id: 'routine',
+      name: 'Routine',
+      unit: null,
+      icon: '✦',
+      color: '#334155',
+      goal: null,
+      presets: [],
+      inputType: 'option',
+      options: optionIds.map((id, index) => ({
+        id,
+        label: id === 'sleep' ? 'Sleep' : 'Exercise',
+        sortOrder: index,
+        createdAt
+      })),
+      active: true,
+      sortOrder: 0,
+      createdAt
+    },
+    createdAt,
+    retryCount: 0
+  };
+}
+
+function optionLogUpsert(
+  operationId: string,
+  optionId: string,
+  createdAt: string
+): OfflineOperation {
+  return {
+    id: operationId,
+    type: 'upsertLog',
+    payload: {
+      id: 'routine-log',
+      trackerId: 'routine',
+      value: null,
+      recordType: 'option',
+      optionId,
+      occurredAt: createdAt,
+      note: '',
+      source: 'website'
+    },
+    createdAt,
+    retryCount: 0
+  };
+}
+
 function settingsSave(operationId: string, createdAt: string): OfflineOperation {
   return {
     id: operationId,
@@ -171,7 +226,53 @@ describe('OfflineQueue', () => {
     queue.enqueue('user-a', earlier);
     queue.enqueue('user-a', unrelated);
 
-    expect(queue.enqueue('user-a', replacement)).toEqual([unrelated, replacement]);
+    expect(queue.enqueue('user-a', replacement)).toEqual([replacement, unrelated]);
+  });
+
+  it('keeps a replacement Option tracker before logs that depend on its new options', () => {
+    const queue = new OfflineQueue(new MemoryStorage());
+    const initial = optionTrackerUpsert(
+      'tracker-initial',
+      ['sleep'],
+      '2026-07-21T08:00:00.000Z'
+    );
+    const dependentLog = optionLogUpsert(
+      'exercise-log',
+      'exercise',
+      '2026-07-21T08:01:00.000Z'
+    );
+    const replacement = optionTrackerUpsert(
+      'tracker-replacement',
+      ['sleep', 'exercise'],
+      '2026-07-21T08:02:00.000Z'
+    );
+
+    queue.enqueue('user-a', initial);
+    queue.enqueue('user-a', dependentLog);
+
+    expect(queue.enqueue('user-a', replacement).map(operation => operation.id)).toEqual([
+      'tracker-replacement',
+      'exercise-log'
+    ]);
+  });
+
+  it('round-trips Option tracker and record operations without changing their variants', () => {
+    const queue = new OfflineQueue(new MemoryStorage());
+    const trackerOperation = optionTrackerUpsert(
+      'tracker-operation',
+      ['sleep'],
+      '2026-07-21T08:00:00.000Z'
+    );
+    const logOperation = optionLogUpsert(
+      'log-operation',
+      'sleep',
+      '2026-07-21T08:01:00.000Z'
+    );
+
+    queue.enqueue('user-a', trackerOperation);
+    queue.enqueue('user-a', logOperation);
+
+    expect(queue.load('user-a')).toEqual([trackerOperation, logOperation]);
   });
 
   it('removes earlier upserts when a delete for the same entity is queued', () => {
