@@ -50,6 +50,7 @@ test.describe('tracker and log workflows', () => {
     await addLogDialog.getByLabel('Value').fill('3');
     await addLogDialog.getByLabel('Note (optional)').fill('Gym bottle');
     await addLogDialog.getByRole('button', { name: 'Save record' }).click();
+    await expect(addLogDialog).toBeHidden();
 
     await navigation(page, testInfo).getByRole('link', { name: /History/ }).click();
     const historyView = page.locator('#view-history');
@@ -60,6 +61,7 @@ test.describe('tracker and log workflows', () => {
     const editLogDialog = page.getByRole('dialog', { name: 'Edit record' });
     await editLogDialog.getByLabel('Note (optional)').fill('Large gym bottle');
     await editLogDialog.getByRole('button', { name: 'Save record' }).click();
+    await expect(editLogDialog).toBeHidden();
     await expect(historyView.locator('#historyGroups')).toContainText('Large gym bottle');
 
     page.once('dialog', dialog => dialog.accept());
