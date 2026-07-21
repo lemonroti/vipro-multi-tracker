@@ -1,4 +1,4 @@
-name: Flutter Scaffold Artifact
+name: Flutter Scaffold
 
 on:
   pull_request:
@@ -7,41 +7,108 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   scaffold:
     if: github.head_ref == 'flutter-android-mvp' || github.ref == 'refs/heads/flutter-android-mvp'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: flutter-android-mvp
+          fetch-depth: 0
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-      - name: Generate Android Flutter project
+      - name: Generate Android Flutter project once
+        shell: bash
         run: |
-          rm -rf apps/flutter
+          if [[ -f apps/flutter/pubspec.yaml ]]; then
+            echo "Flutter project already exists; skipping scaffold generation."
+            exit 0
+          fi
           flutter create \
             --platforms=android \
             --org com.lemonroti \
             --project-name vipro_multi_tracker \
             apps/flutter
-      - name: Set Android application ID
-        run: |
           sed -i 's/com\.lemonroti\.vipro_multi_tracker/com.lemonroti.multitracker/g' apps/flutter/android/app/build.gradle.kts
           mkdir -p apps/flutter/android/app/src/main/kotlin/com/lemonroti/multitracker
           mv apps/flutter/android/app/src/main/kotlin/com/lemonroti/vipro_multi_tracker/MainActivity.kt apps/flutter/android/app/src/main/kotlin/com/lemonroti/multitracker/MainActivity.kt
           sed -i 's/package com\.lemonroti\.vipro_multi_tracker/package com.lemonroti.multitracker/' apps/flutter/android/app/src/main/kotlin/com/lemonroti/multitracker/MainActivity.kt
           rm -rf apps/flutter/android/app/src/main/kotlin/com/lemonroti/vipro_multi_tracker
-      - name: Set Android minimum SDK
-        run: sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/' apps/flutter/android/app/build.gradle.kts
-      - name: Upload scaffold
+          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/' apps/flutter/android/app/build.gradle.kts
+          cat > apps/flutter/pubspec.yaml <<'EOF'
+          name: vipro_multi_tracker
+          description: Android-first Flutter client for Vipro Multi Tracker.
+          publish_to: 'none'
+          version: 0.1.0+1
+
+          environment:
+            sdk: ">=3.10.0 <4.0.0"
+
+          dependencies:
+            flutter:
+              sdk: flutter
+            connectivity_plus: ^7.0.0
+            drift: ^2.34.0
+            drift_flutter: ^0.3.0
+            flutter_riverpod: ^3.0.0
+            go_router: ^17.0.0
+            home_widget: ^0.9.0
+            intl: ^0.20.0
+            shared_preferences: ^2.5.0
+            supabase_flutter: ^2.16.0
+            uuid: ^4.5.0
+            workmanager: ^0.9.0
+
+          dev_dependencies:
+            flutter_test:
+              sdk: flutter
+            integration_test:
+              sdk: flutter
+            build_runner: ^2.10.0
+            drift_dev: ^2.34.0
+            flutter_lints: ^6.0.0
+            mocktail: ^1.0.0
+
+          flutter:
+            uses-material-design: true
+          EOF
+          cat >> .gitignore <<'EOF'
+
+          # Generated Flutter artifacts
+          apps/flutter/.dart_tool/
+          apps/flutter/build/
+          apps/flutter/android/local.properties
+          apps/flutter/.flutter-plugins*
+          EOF
+          rm -rf apps/flutter/.dart_tool apps/flutter/.idea
+          rm -f apps/flutter/android/local.properties apps/flutter/android/*.iml apps/flutter/*.iml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add apps/flutter .gitignore
+          git commit -m "feat(flutter): scaffold Android tracker app"
+          git push origin HEAD:flutter-android-mvp
+      - name: Resolve dependencies
+        working-directory: apps/flutter
+        run: flutter pub get
+      - name: Analyze
+        working-directory: apps/flutter
+        run: flutter analyze
+      - name: Test
+        working-directory: apps/flutter
+        run: flutter test
+      - name: Build debug APK
+        working-directory: apps/flutter
+        run: flutter build apk --debug
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: flutter-android-scaffold
-          path: apps/flutter
-          include-hidden-files: true
+          name: flutter-task-1-debug-apk
+          path: apps/flutter/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 2
