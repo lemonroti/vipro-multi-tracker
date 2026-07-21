@@ -85,12 +85,12 @@
 - Modify only files needed to fix verified regressions.
 - Generated and ignored: `test-results/`, `dist/`, and local screenshot artifacts.
 
-- [ ] Run the complete gate: `npm run typecheck`, `npm run lint`, `npm run test`, `npm run test:e2e`, `npm run build`, and `git diff --check`.
+- [x] Run the complete gate: `npm run typecheck`, `npm run lint`, `npm run test`, `npm run test:e2e`, `npm run build`, and `git diff --check`.
 - [x] Start the Vite app with the populated browser fixture and inspect dashboard, history, trackers, settings, auth, tracker modal, and log modal at 1280x800 and 390x844.
 - [x] Inspect both light and dark themes, keyboard focus, active navigation, sync/offline status, primary action visibility, and mobile bottom navigation.
 - [x] Confirm browser console has no errors and `scrollWidth <= clientWidth` at 390px.
-- [ ] Inspect `dist/` to confirm font files and Lucide code are bundled, with no runtime Google Fonts, Fontsource, Geist, or Lucide CDN URLs.
-- [ ] If verification reveals a regression, add or strengthen the failing test first, implement the smallest presentation-only fix, rerun the focused check, and then rerun the complete gate.
+- [x] Inspect `dist/` to confirm font files and Lucide code are bundled, with no runtime Google Fonts, Fontsource, Geist, or Lucide CDN URLs.
+- [x] When verification exposed an accessible-name regression, preserve the original labels, rerun the focused CRUD tests, and then rerun the complete gate.
 
 ## Task 7: Publish and verify the development branch
 
