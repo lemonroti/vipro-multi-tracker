@@ -58,6 +58,15 @@ function newestLogs(state: Readonly<AppState>): TrackingLog[] {
   );
 }
 
+function hasOneUnit(todaysLogs: readonly TrackingLog[], state: Readonly<AppState>): boolean {
+  const units = new Set(todaysLogs.flatMap(log => {
+    if (log.recordType !== 'unit') return [];
+    const tracker = trackerForLog(state, log);
+    return tracker?.inputType === 'unit' ? [tracker.unit.trim().toLowerCase()] : [];
+  }));
+  return units.size === 1;
+}
+
 function getTracker(state: Readonly<AppState>, id: string): Tracker | undefined {
   return state.trackers.find(tracker => tracker.id === id);
 }
@@ -241,6 +250,7 @@ export function createDashboardController(
       getElement('#statTodayEntries').textContent = String(todaysLogs.length);
       getElement('#statTodayCaption').textContent = todaysLogs.length
         ? todaysLogs.every((log): log is UnitTrackingLog => log.recordType === 'unit')
+          && hasOneUnit(todaysLogs, state)
           ? `${formatValue(todaysLogs.reduce((total, log) => total + log.value, 0))} total value logged`
           : `${todaysLogs.length} ${todaysLogs.length === 1 ? 'record' : 'records'} logged today`
         : 'Nothing logged yet';

@@ -72,7 +72,7 @@ test.describe('tracker and log workflows', () => {
     await expect(historyView.locator('#historyGroups')).not.toContainText('Large gym bottle');
   });
 
-  test('creates an Option tracker, edits its quick log, and locks its type', async ({
+  test('creates a one-option tracker, edits its quick log, and locks its type', async ({
     page
   }, testInfo) => {
     await navigation(page, testInfo).getByRole('link', { name: /Trackers/ }).click();
@@ -83,11 +83,11 @@ test.describe('tracker and log workflows', () => {
     await createTrackerDialog.getByLabel('Tracking type').selectOption('option');
     await createTrackerDialog
       .getByLabel('Options, separated by commas')
-      .fill('Sleep, Wake');
+      .fill('Wake');
     await createTrackerDialog.getByRole('button', { name: 'Save tracker' }).click();
 
     const managedTracker = trackerView.locator('.manage-card').filter({ hasText: 'Bedtime' });
-    await expect(managedTracker).toContainText('Options: Sleep, Wake');
+    await expect(managedTracker).toContainText('Options: Wake');
 
     await navigation(page, testInfo).locator('[data-nav="dashboard"]').click();
     const trackerCard = page.locator('.tracker-card').filter({ hasText: 'Bedtime' });

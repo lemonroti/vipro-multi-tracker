@@ -37,7 +37,7 @@ function trackerUpsert(
   entityId: string,
   createdAt: string,
   name = entityId
-): OfflineOperation {
+): Extract<OfflineOperation, { type: 'upsertTracker' }> {
   return {
     id: operationId,
     type: 'upsertTracker',
@@ -60,7 +60,11 @@ function trackerUpsert(
   };
 }
 
-function logUpsert(operationId: string, entityId: string, createdAt: string): OfflineOperation {
+function logUpsert(
+  operationId: string,
+  entityId: string,
+  createdAt: string
+): Extract<OfflineOperation, { type: 'upsertLog' }> {
   return {
     id: operationId,
     type: 'upsertLog',
@@ -254,6 +258,34 @@ describe('OfflineQueue', () => {
       'tracker-replacement',
       'exercise-log'
     ]);
+  });
+
+  it('removes queued option logs for options omitted by a replacement tracker', () => {
+    const queue = new OfflineQueue(new MemoryStorage());
+    queue.enqueue('user-a', optionTrackerUpsert('tracker-initial', ['sleep', 'exercise'], '2026-07-21T08:00:00.000Z'));
+    queue.enqueue('user-a', optionLogUpsert('sleep-log', 'sleep', '2026-07-21T08:01:00.000Z'));
+    queue.enqueue('user-a', optionLogUpsert('exercise-log', 'exercise', '2026-07-21T08:02:00.000Z'));
+
+    expect(queue.enqueue(
+      'user-a',
+      optionTrackerUpsert('tracker-removal', ['exercise'], '2026-07-21T08:03:00.000Z')
+    ).map(operation => operation.id)).toEqual(['tracker-removal', 'exercise-log']);
+  });
+
+  it('normalizes legacy v3 Unit tracker and log upserts from the existing queue key', () => {
+    const storage = new MemoryStorage();
+    const queue = new OfflineQueue(storage);
+    const tracker = trackerUpsert('legacy-tracker', 'tracker-legacy', '2026-07-21T08:00:00.000Z');
+    const log = logUpsert('legacy-log', 'log-legacy', '2026-07-21T08:01:00.000Z');
+    const legacyTracker = structuredClone(tracker) as unknown as { payload: Record<string, unknown> };
+    const legacyLog = structuredClone(log) as unknown as { payload: Record<string, unknown> };
+    delete legacyTracker.payload.inputType;
+    delete legacyTracker.payload.options;
+    delete legacyLog.payload.recordType;
+    delete legacyLog.payload.optionId;
+    storage.setItem(`${QUEUE_KEY_PREFIX}user-a`, JSON.stringify([legacyTracker, legacyLog]));
+
+    expect(queue.load('user-a')).toEqual([tracker, log]);
   });
 
   it('round-trips Option tracker and record operations without changing their variants', () => {

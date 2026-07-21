@@ -21,6 +21,49 @@ function matchingUpsertType(operation: OfflineOperation): OfflineOperation['type
   return null;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function normalizeLegacyOperation(operation: unknown): unknown {
+  if (!isRecord(operation) || !isRecord(operation.payload)) return operation;
+
+  if (operation.type === 'upsertTracker' && operation.payload.inputType === undefined) {
+    return {
+      ...operation,
+      payload: {
+        ...operation.payload,
+        inputType: 'unit',
+        options: []
+      }
+    };
+  }
+
+  if (operation.type === 'upsertLog' && operation.payload.recordType === undefined) {
+    return {
+      ...operation,
+      payload: {
+        ...operation.payload,
+        recordType: 'unit',
+        optionId: null
+      }
+    };
+  }
+
+  return operation;
+}
+
+function isRemovedOptionLog(
+  operation: OfflineOperation,
+  trackerId: string,
+  retainedOptionIds: ReadonlySet<string>
+): boolean {
+  return operation.type === 'upsertLog'
+    && operation.payload.recordType === 'option'
+    && operation.payload.trackerId === trackerId
+    && !retainedOptionIds.has(operation.payload.optionId);
+}
+
 export class OfflineQueue {
   constructor(private readonly storage: Storage) {}
 
@@ -33,7 +76,7 @@ export class OfflineQueue {
       if (!Array.isArray(parsed)) return [];
 
       return parsed.flatMap(operation => {
-        const result = offlineOperationSchema.safeParse(operation);
+        const result = offlineOperationSchema.safeParse(normalizeLegacyOperation(operation));
         return result.success ? [result.data] : [];
       });
     } catch {
@@ -62,6 +105,15 @@ export class OfflineQueue {
           && queuedEntityId === nextEntityId;
         return !sameOperation && !supersededUpsert;
       });
+    }
+
+    if (nextOperation.type === 'upsertTracker' && nextOperation.payload.inputType === 'option') {
+      const retainedOptionIds = new Set(nextOperation.payload.options.map(option => option.id));
+      operations = operations.filter(operation => !isRemovedOptionLog(
+        operation,
+        nextOperation.payload.id,
+        retainedOptionIds
+      ));
     }
 
     const replacesUpsert = replacementIndex >= 0

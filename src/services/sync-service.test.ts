@@ -188,6 +188,38 @@ describe('SyncService.sync', () => {
     ]);
   });
 
+  it('drops a permanently rejected queued operation and continues with later work', async () => {
+    const { store, cache, queue } = createDependencies();
+    const rejected = makeOperation('rejected');
+    const later = makeOperation('later');
+    queue.enqueue('user-1', rejected);
+    queue.enqueue('user-1', later);
+    const attempted: string[] = [];
+    const onPermanentFailure = vi.fn();
+    const service = new SyncService(
+      store,
+      cache,
+      queue,
+      operation => {
+        attempted.push(operation.id);
+        return operation.id === 'rejected'
+          ? Promise.reject(new RepositoryError('validation', 'Rejected permanently'))
+          : Promise.resolve();
+      },
+      () => true,
+      onPermanentFailure
+    );
+
+    await service.sync('user-1');
+
+    expect(attempted).toEqual(['rejected', 'later']);
+    expect(queue.load('user-1')).toEqual([]);
+    expect(onPermanentFailure).toHaveBeenCalledWith({
+      kind: 'validation',
+      message: 'Rejected permanently'
+    });
+  });
+
   it('returns one shared execution to concurrent callers', async () => {
     const { store, cache, queue } = createDependencies();
     queue.enqueue('user-1', makeOperation('operation-1'));

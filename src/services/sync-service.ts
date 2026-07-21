@@ -72,7 +72,8 @@ export class SyncService {
     private readonly cache: UserCache,
     private readonly queue: OfflineQueue,
     private readonly execute: OperationExecutor,
-    private readonly isOnline: () => boolean
+    private readonly isOnline: () => boolean,
+    private readonly onPermanentFailure: (error: ApplicationError) => void = () => undefined
   ) {}
 
   async persist(
@@ -122,9 +123,14 @@ export class SyncService {
       try {
         await this.execute(operation);
         this.queue.remove(userId, operation.id);
-      } catch {
-        this.queue.incrementRetry(userId, operation.id);
-        break;
+      } catch (error) {
+        const mappedError = applicationError(error);
+        if (mappedError.kind === 'network') {
+          this.queue.incrementRetry(userId, operation.id);
+          break;
+        }
+        this.queue.remove(userId, operation.id);
+        this.onPermanentFailure(mappedError);
       }
     }
   }

@@ -127,6 +127,33 @@ function createHarness(
 }
 
 describe('TrackerService', () => {
+  it.each(['   ', 'x'.repeat(31)])(
+    'rejects an invalid Unit label before mutating or persisting: %j',
+    async unit => {
+      const initial = blankState();
+      const { store, execute, service } = createHarness(initial);
+
+      const result = await service.save({ ...INPUT, unit });
+
+      expect(result).toEqual({
+        ok: false,
+        error: { kind: 'validation', message: 'Invalid tracker input.' }
+      });
+      expect(store.getState()).toEqual(initial);
+      expect(execute).not.toHaveBeenCalled();
+    }
+  );
+
+  it('stores a trimmed Unit label', async () => {
+    const { store, service } = createHarness(blankState(), undefined, [
+      'tracker-new', 'operation-create'
+    ]);
+
+    await service.save({ ...INPUT, unit: '  ml  ' });
+
+    expect(store.getState().trackers[0]).toMatchObject({ unit: 'ml' });
+  });
+
   it('rejects Unit edits to an Option tracker that has records', async () => {
     const optionTracker = makeOptionTracker({
       options: [{ id: 'sleep', label: 'Sleep', sortOrder: 0, createdAt: NOW }]

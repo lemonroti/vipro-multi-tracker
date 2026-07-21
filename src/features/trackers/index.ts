@@ -62,12 +62,16 @@ export function createTrackerController(
   const inputType = getElement<HTMLSelectElement>('#trackerInputType');
   const unitFields = getElement<HTMLElement>('#trackerUnitFields');
   const optionFields = getElement<HTMLElement>('#trackerOptionFields');
+  const unitInput = getElement<HTMLInputElement>('#trackerUnit');
+  const optionsInput = getElement<HTMLInputElement>('#trackerOptions');
   let selectedColor: string = TRACKER_COLORS[1];
 
   const renderInputType = (): void => {
     const isOption = inputType.value === 'option';
     unitFields.hidden = isOption;
     optionFields.hidden = !isOption;
+    unitInput.required = !isOption;
+    optionsInput.required = isOption;
   };
 
   const renderColors = (): void => {

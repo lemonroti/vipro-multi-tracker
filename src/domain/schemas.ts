@@ -46,7 +46,7 @@ const trackerBaseFields = {
 export const unitTrackerSchema = z.object({
   ...trackerBaseFields,
   inputType: z.literal('unit'),
-  unit: z.string(),
+  unit: z.string().trim().min(1).max(30),
   goal: z.number().finite().nullable(),
   presets: z.array(z.number().finite().positive()).max(8),
   options: z.tuple([])

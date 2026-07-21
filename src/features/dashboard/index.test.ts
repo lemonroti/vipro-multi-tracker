@@ -206,6 +206,19 @@ describe('DashboardController', () => {
     expect(callbacks.addQuickOptionLog).toHaveBeenCalledWith('sleep-tracker', 'wake-id');
   });
 
+  test('uses a neutral caption when today contains incompatible Unit measurements', () => {
+    const controller = createDashboardController(dependencies());
+    controller.render(state({
+      trackers: [tracker(), tracker({ id: 'smoking', name: 'Smoking', unit: 'cigarette', sortOrder: 1 })],
+      logs: [
+        log('water-today', 0, 2),
+        log('smoking-today', 0, 1, { trackerId: 'smoking' })
+      ]
+    }));
+
+    expect(document.querySelector('#statTodayCaption')?.textContent).toBe('2 records logged today');
+  });
+
   test('renders the existing empty states without an active tracker or record', () => {
     const controller = createDashboardController(dependencies());
 

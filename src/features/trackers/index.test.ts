@@ -80,7 +80,7 @@ function installDom(): void {
         </select>
         <p id="trackerInputTypeHelp"></p>
         <div id="trackerUnitFields">
-          <input id="trackerUnit" maxlength="30" />
+          <input id="trackerUnit" maxlength="30" required />
           <input id="trackerGoal" type="number" />
           <input id="trackerPresets" />
         </div>
@@ -143,6 +143,7 @@ describe('TrackerController', () => {
     expect(unitFields.hidden).toBe(false);
     expect(optionFields.hidden).toBe(true);
     expect(options.value).toBe('');
+    expect(document.querySelector<HTMLInputElement>('#trackerUnit')?.required).toBe(true);
 
     document.querySelector<HTMLInputElement>('#trackerUnit')!.value = 'minutes';
     document.querySelector<HTMLInputElement>('#trackerGoal')!.value = '30';
@@ -152,10 +153,14 @@ describe('TrackerController', () => {
 
     expect(unitFields.hidden).toBe(true);
     expect(optionFields.hidden).toBe(false);
+    expect(document.querySelector<HTMLInputElement>('#trackerUnit')?.required).toBe(false);
+    expect(options.required).toBe(true);
     options.value = 'Sleep, Wake';
 
     inputType.value = 'unit';
     inputType.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(document.querySelector<HTMLInputElement>('#trackerUnit')?.required).toBe(true);
+    expect(options.required).toBe(false);
     expect(document.querySelector<HTMLInputElement>('#trackerUnit')?.value).toBe('minutes');
     expect(document.querySelector<HTMLInputElement>('#trackerGoal')?.value).toBe('30');
     expect(document.querySelector<HTMLInputElement>('#trackerPresets')?.value).toBe('5, 10');

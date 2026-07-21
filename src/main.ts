@@ -116,7 +116,8 @@ export async function startApplication(): Promise<void> {
       cache,
       queue,
       executeOperation,
-      () => navigator.onLine
+      () => navigator.onLine,
+      () => shell.showToast('A pending change could not be saved. The cloud version was restored.')
     );
     const cloudStateService = new CloudStateService(
       userId,

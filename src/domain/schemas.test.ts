@@ -4,7 +4,8 @@ import {
   normalizeState,
   offlineOperationSchema,
   trackerSchema,
-  trackingLogSchema
+  trackingLogSchema,
+  unitTrackerSchema
 } from './schemas';
 import { makeDefaultTrackers } from './defaults';
 
@@ -219,6 +220,27 @@ describe('normalizeState', () => {
 });
 
 describe('trackerSchema', () => {
+  it('trims Unit labels and rejects blank or overlong values', () => {
+    const tracker = {
+      id: 'tracker-1',
+      name: 'Tracker',
+      icon: '✦',
+      color: '#334155',
+      active: true,
+      sortOrder: 0,
+      createdAt: '2026-07-21T00:00:00.000Z',
+      inputType: 'unit' as const,
+      unit: '  minute  ',
+      goal: null,
+      presets: [1],
+      options: [] as []
+    };
+
+    expect(unitTrackerSchema.parse(tracker).unit).toBe('minute');
+    expect(unitTrackerSchema.safeParse({ ...tracker, unit: '   ' }).success).toBe(false);
+    expect(unitTrackerSchema.safeParse({ ...tracker, unit: 'x'.repeat(31) }).success).toBe(false);
+  });
+
   it('accepts Unit and Option tracker variants', () => {
     const common = {
       id: 'tracker-1',
