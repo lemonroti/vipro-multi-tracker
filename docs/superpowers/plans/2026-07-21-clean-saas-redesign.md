@@ -27,10 +27,10 @@
 - Create: `src/shared/icons.test.ts`
 - Modify: `tests/e2e/responsive-theme.spec.ts`
 
-- [ ] Add a unit test that mounts `<i data-lucide="house">`, calls `renderIcons`, and expects an inline SVG with `aria-hidden="true"` while preserving the host class.
-- [ ] Run `npm run test -- src/shared/icons.test.ts` and confirm the missing helper causes the expected RED failure.
-- [ ] Add Playwright assertions that the computed body font includes `Geist Variable`, the visible navigation uses inline Lucide SVGs, primary dashboard actions remain visible, and a 390px page has no horizontal overflow.
-- [ ] Run `npx playwright test tests/e2e/responsive-theme.spec.ts --project=chromium-mobile` and confirm the unimplemented font/icon assertions fail for the expected reason.
+- [x] Add a unit test that mounts `<i data-lucide="house">`, calls `renderIcons`, and expects an inline SVG with `aria-hidden="true"` while preserving the host class.
+- [x] Run `npm run test -- src/shared/icons.test.ts` and confirm the missing helper causes the expected RED failure.
+- [x] Add Playwright assertions that the computed body font includes `Geist Variable`, the visible navigation uses inline Lucide SVGs, primary dashboard actions remain visible, and a 390px page has no horizontal overflow.
+- [x] Run `npx playwright test tests/e2e/responsive-theme.spec.ts --project=chromium-mobile` and confirm the unimplemented font/icon assertions fail for the expected reason.
 
 ## Task 3: Add the locally bundled font and icon foundation
 
@@ -40,11 +40,11 @@
 - Create: `src/shared/icons.ts`
 - Modify: `src/main.ts`
 
-- [ ] Install exact versions with `npm install --save-exact @fontsource-variable/geist@5.3.0 lucide@1.25.0`.
-- [ ] Import `@fontsource-variable/geist/wght.css` from `src/main.ts` so Vite owns font delivery.
-- [ ] Implement `renderIcons(root)` with a constrained Lucide icon map and accessible SVG defaults. It must render only icons used by this app and safely support repeated dynamic renders.
-- [ ] Call `renderIcons()` after static startup and after feature rendering so icons inserted via `innerHTML` are upgraded.
-- [ ] Run `npm run test -- src/shared/icons.test.ts`, `npm run typecheck`, and `npm run lint`; make the new unit contract GREEN without weakening it.
+- [x] Install exact versions with `npm install --save-exact @fontsource-variable/geist@5.3.0 lucide@1.25.0`.
+- [x] Import `@fontsource-variable/geist/wght.css` from `src/main.ts` so Vite owns font delivery.
+- [x] Implement `renderIcons(root)` with a constrained Lucide icon map and accessible SVG defaults. It must render only icons used by this app and safely support repeated dynamic renders.
+- [x] Call `renderIcons()` after static startup and after feature rendering so icons inserted via `innerHTML` are upgraded.
+- [x] Run `npm run test -- src/shared/icons.test.ts`, `npm run typecheck`, and `npm run lint`; make the new unit contract GREEN without weakening it.
 - [ ] Commit with `git add package.json package-lock.json src/main.ts src/shared && git commit -m "feat: add local Geist font and icons"`.
 
 ## Task 4: Modernize the semantic application shell
