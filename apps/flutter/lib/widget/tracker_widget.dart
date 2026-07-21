@@ -45,14 +45,11 @@ Future<void> trackerWidgetBackgroundCallback(Uri? uri) async {
 
   final database = AppDatabase();
   try {
-    final tracker =
-        await (database.select(database.localTrackers)..where(
-              (row) =>
-                  row.userId.equals(session.user.id) &
-                  row.id.equals(trackerId) &
-                  row.deletedAt.isNull(),
-            ))
-            .getSingleOrNull();
+    final trackerQuery = database.select(database.localTrackers)
+      ..where((row) => row.userId.equals(session.user.id))
+      ..where((row) => row.id.equals(trackerId))
+      ..where((row) => row.deletedAt.isNull());
+    final tracker = await trackerQuery.getSingleOrNull();
     if (tracker == null) {
       await _saveStatus(widgetId, 'Tracker unavailable');
       return;
