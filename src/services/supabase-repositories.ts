@@ -11,10 +11,12 @@ import {
 import {
   logFromRow,
   logToRow,
+  optionToRow,
   settingsFromRow,
   settingsToRow,
-  trackerFromRow,
+  trackerFromRows,
   trackerToRow,
+  type TrackerOptionRow,
   type TrackerRow,
   type TrackingLogRow,
   type UserSettingsRow
@@ -65,13 +67,42 @@ function withoutUserId<Row extends { user_id: string }>(row: Row): Omit<Row, 'us
   return payload;
 }
 
+function optionRpcPayload(
+  option: Parameters<typeof optionToRow>[0],
+  trackerId: string,
+  userId: string
+) {
+  const {
+    user_id: optionUserId,
+    tracker_id: optionTrackerId,
+    ...payload
+  } = optionToRow(option, trackerId, userId);
+  void optionUserId;
+  void optionTrackerId;
+  return payload;
+}
+
+function optionRpcPayloads(tracker: Tracker, userId: string) {
+  return [...tracker.options]
+    .sort((left, right) => (
+      left.sortOrder - right.sortOrder
+      || left.createdAt.localeCompare(right.createdAt)
+      || left.id.localeCompare(right.id)
+    ))
+    .map(option => optionRpcPayload(option, tracker.id, userId));
+}
+
 export class SupabaseBackupRepository implements BackupRepository {
   constructor(private readonly client: SupabaseClient) {}
 
   async restoreState(state: AppState): Promise<void> {
     const { error } = await this.client.rpc('restore_tracker_state', {
       trackers_payload: state.trackers.map(tracker => (
-        withoutUserId(trackerToRow(tracker, ''))
+        {
+          ...withoutUserId(trackerToRow(tracker, '')),
+          created_at: tracker.createdAt,
+          options: optionRpcPayloads(tracker, '')
+        }
       )),
       logs_payload: state.logs.map(log => withoutUserId(logToRow(log, ''))),
       settings_payload: withoutUserId(settingsToRow(state.settings, ''))
@@ -87,22 +118,55 @@ export class SupabaseTrackerRepository implements TrackerRepository {
   ) {}
 
   async list(): Promise<Tracker[]> {
-    const { data, error } = await this.client
+    const trackersRequest = this.client
       .from('trackers')
       .select('*')
       .eq('user_id', this.userId)
       .order('sort_order')
       .order('created_at');
-    if (error) throwRepositoryError(error);
+    const optionsRequest = this.client
+      .from('tracker_options')
+      .select('*')
+      .eq('user_id', this.userId)
+      .order('tracker_id')
+      .order('sort_order')
+      .order('created_at');
+    const [trackersResult, optionsResult] = await Promise.all([
+      trackersRequest,
+      optionsRequest
+    ]);
+    if (trackersResult.error) throwRepositoryError(trackersResult.error);
+    if (optionsResult.error) throwRepositoryError(optionsResult.error);
 
-    return mapRows((data ?? []) as TrackerRow[], trackerFromRow);
+    const trackerRows = (trackersResult.data ?? []) as TrackerRow[];
+    const optionRows = (optionsResult.data ?? []) as TrackerOptionRow[];
+    try {
+      const trackerIds = new Set(trackerRows.map(row => row.id));
+      if (optionRows.some(row => !trackerIds.has(row.tracker_id))) {
+        throw new Error('Tracker option row references an unloaded tracker.');
+      }
+
+      const optionsByTrackerId = new Map<string, TrackerOptionRow[]>();
+      optionRows.forEach(row => {
+        const options = optionsByTrackerId.get(row.tracker_id) ?? [];
+        options.push(row);
+        optionsByTrackerId.set(row.tracker_id, options);
+      });
+
+      return trackerRows.map(row => trackerFromRows(
+        row,
+        optionsByTrackerId.get(row.id) ?? []
+      ));
+    } catch {
+      throw new RepositoryError('validation', safeMessage('validation'));
+    }
   }
 
   async upsert(tracker: Tracker): Promise<void> {
-    const { error } = await this.client
-      .from('trackers')
-      .upsert(trackerToRow(tracker, this.userId), { onConflict: 'id' })
-      .eq('user_id', this.userId);
+    const { error } = await this.client.rpc('save_tracker_with_options', {
+      tracker_payload: withoutUserId(trackerToRow(tracker, this.userId)),
+      options_payload: optionRpcPayloads(tracker, this.userId)
+    });
     if (error) throwRepositoryError(error);
   }
 
