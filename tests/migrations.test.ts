@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 
@@ -7,6 +7,21 @@ function migration(name: string): string {
     fileURLToPath(new URL(`../supabase/migrations/${name}`, import.meta.url)),
     'utf8'
   ).toLowerCase();
+}
+
+function migrationBySuffix(suffix: string): string {
+  const migrationsDirectory = fileURLToPath(
+    new URL('../supabase/migrations/', import.meta.url)
+  );
+  const matches = readdirSync(migrationsDirectory)
+    .filter(name => name.endsWith(suffix));
+  const match = matches[0];
+
+  if (matches.length !== 1 || match === undefined) {
+    throw new Error(`Expected exactly one migration ending in ${suffix}, found ${matches.length}.`);
+  }
+
+  return migration(match);
 }
 
 describe('Supabase schema migrations', () => {
@@ -53,5 +68,52 @@ describe('Supabase schema migrations', () => {
     expect(sql).toContain('current_user_id uuid := (select auth.uid())');
     expect(sql).toContain('from public, anon, authenticated');
     expect(sql).toContain('to authenticated');
+  });
+
+  test('the option tracker migration adds the version 4 storage contracts', () => {
+    const sql = migrationBySuffix('add_option_trackers.sql');
+
+    expect(sql).toContain("input_type text not null default 'unit'");
+    expect(sql).toContain('create table public.tracker_options');
+    expect(sql).toContain('on delete cascade');
+    expect(sql).toContain('save_tracker_with_options');
+    expect(sql).toContain('security invoker');
+    expect(sql).toContain('grant execute on function public.save_tracker_with_options');
+    expect(sql).toContain('option_id uuid');
+    expect(sql).toContain('restore_tracker_state');
+  });
+
+  test('the version 4 restore validates option data before deleting user state', () => {
+    const sql = migrationBySuffix('add_option_trackers.sql');
+    const restoreStart = sql.indexOf('create or replace function public.restore_tracker_state');
+    const restoreSql = sql.slice(restoreStart);
+    const firstDelete = restoreSql.indexOf('delete from public.tracking_logs');
+    const requiredValidation = [
+      "jsonb_typeof(options) is distinct from 'array'",
+      "input_type not in ('unit', 'option')",
+      'option_id is null',
+      'option payload contains duplicate records',
+      'log payload references an unknown option'
+    ];
+
+    expect(restoreStart).toBeGreaterThanOrEqual(0);
+    expect(firstDelete).toBeGreaterThan(0);
+    for (const validation of requiredValidation) {
+      const location = restoreSql.indexOf(validation);
+      expect(location, validation).toBeGreaterThan(0);
+      expect(location, validation).toBeLessThan(firstDelete);
+    }
+  });
+
+  test('the option tracker migration applies least-privilege ownership controls', () => {
+    const sql = migrationBySuffix('add_option_trackers.sql');
+
+    expect(sql).toContain('alter table public.tracker_options enable row level security');
+    expect(sql).toContain('grant select, insert, update, delete on public.tracker_options to authenticated');
+    expect(sql).not.toContain('grant select, insert, update, delete on public.tracker_options to anon');
+    expect(sql).toContain('revoke execute on function public.save_tracker_with_options(jsonb, jsonb) from public, anon');
+    expect(sql).toContain('revoke execute on function public.restore_tracker_state(jsonb, jsonb, jsonb) from public, anon');
+    expect(sql).toContain('lock_tracker_input_type');
+    expect(sql).toContain('tracking_logs_tracker_option_fkey');
   });
 });
