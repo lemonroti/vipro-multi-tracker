@@ -55,11 +55,11 @@
 - Modify: `src/features/history/index.ts`
 - Modify tests beside changed feature controllers when their exact rendered markup assertions require updates.
 
-- [ ] Replace sidebar and mobile navigation glyphs with `<i data-lucide>` placeholders while preserving link names, `data-nav`, hrefs, and active-state behavior.
-- [ ] Add Lucide icons to contextual create/add controls where they improve hierarchy without changing accessible names.
-- [ ] Replace modal close glyphs, dashboard overflow actions, and history edit/delete glyphs with Lucide placeholders; retain every ID, `data-*` action hook, title, and `aria-label`.
-- [ ] Keep tracker emoji and empty-state content symbols unchanged because they are user/content semantics rather than navigation controls.
-- [ ] Ensure the feature render cycle calls `renderIcons` after its dynamic templates are assigned.
+- [x] Replace sidebar and mobile navigation glyphs with `<i data-lucide>` placeholders while preserving link names, `data-nav`, hrefs, and active-state behavior.
+- [x] Add Lucide icons to contextual create/add controls where they improve hierarchy without changing accessible names.
+- [x] Replace modal close glyphs, dashboard overflow actions, and history edit/delete glyphs with Lucide placeholders; retain every ID, `data-*` action hook, title, and `aria-label`.
+- [x] Keep tracker emoji and empty-state content symbols unchanged because they are user/content semantics rather than navigation controls.
+- [x] Ensure the feature render cycle calls `renderIcons` after its dynamic templates are assigned.
 - [ ] Run focused tests: `npm run test -- src/features/dashboard/index.test.ts src/features/history/index.test.ts src/features/shell/index.test.ts` (the shell path may pass with no matching file), then run `npm run test`.
 - [ ] Commit with `git add index.html src/features src/main.ts && git commit -m "feat: refine application iconography"`.
 

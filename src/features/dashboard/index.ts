@@ -6,6 +6,7 @@ import {
 } from '../../shared/dates';
 import { getElement } from '../../shared/dom';
 import { escapeHtml, formatValue, pluralUnit } from '../../shared/formatting';
+import { renderIcons } from '../../shared/icons';
 
 export interface DashboardDependencies {
   addQuickLog(trackerId: string, value: number): Promise<void>;
@@ -61,7 +62,7 @@ function trackerCardHtml(
     `<button class="button quick-button" style="background:${tracker.color}" data-quick-log="${escapeHtml(tracker.id)}" data-value="${value}">+${formatValue(value)}${tracker.unit.toLowerCase() === 'minute' ? ' min' : ''}</button>`
   )).join('');
 
-  return `<article class="card tracker-card"><div class="tracker-top"><div class="tracker-heading"><div class="tracker-ident"><div class="tracker-icon" style="background:${tracker.color}1c;color:${tracker.color}">${escapeHtml(tracker.icon)}</div><div><h3>${escapeHtml(tracker.name)}</h3><p>${latest ? `Last ${timeAgo(latest.occurredAt)}` : 'No entry yet'}</p></div></div><button class="row-action" data-edit-from-card="${escapeHtml(tracker.id)}" title="Edit tracker">•••</button></div><div class="today-total"><div><span class="number">${formatValue(total)}</span> <span class="unit">${escapeHtml(pluralUnit(tracker.unit, total))}</span></div><div class="goal-copy">${goalText}</div></div><div class="progress-track"><div class="progress-fill" style="width:${percent}%;background:${tracker.color}"></div></div></div><div class="quick-actions">${quickActions}<button class="button custom-button" data-custom-log="${escapeHtml(tracker.id)}">Custom</button></div></article>`;
+  return `<article class="card tracker-card"><div class="tracker-top"><div class="tracker-heading"><div class="tracker-ident"><div class="tracker-icon" style="background:${tracker.color}1c;color:${tracker.color}">${escapeHtml(tracker.icon)}</div><div><h3>${escapeHtml(tracker.name)}</h3><p>${latest ? `Last ${timeAgo(latest.occurredAt)}` : 'No entry yet'}</p></div></div><button class="row-action" data-edit-from-card="${escapeHtml(tracker.id)}" title="Edit tracker" aria-label="Edit tracker"><i data-lucide="ellipsis"></i></button></div><div class="today-total"><div><span class="number">${formatValue(total)}</span> <span class="unit">${escapeHtml(pluralUnit(tracker.unit, total))}</span></div><div class="goal-copy">${goalText}</div></div><div class="progress-track"><div class="progress-fill" style="width:${percent}%;background:${tracker.color}"></div></div></div><div class="quick-actions">${quickActions}<button class="button custom-button" data-custom-log="${escapeHtml(tracker.id)}">Custom</button></div></article>`;
 }
 
 export function createDashboardController(
@@ -158,6 +159,7 @@ export function createDashboardController(
           'No active trackers',
           'Create or reactivate a tracker to start recording.'
         );
+      renderIcons(trackerGrid);
 
       const recent = sortedLogs.slice(0, 6);
       getElement('#dashboardActivity').innerHTML = recent.length

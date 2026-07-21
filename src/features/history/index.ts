@@ -2,6 +2,7 @@ import type { AppState, Tracker, TrackingLog } from '../../domain/models';
 import { formatDateHeading, formatDateTime, localDateKey } from '../../shared/dates';
 import { getElement } from '../../shared/dom';
 import { escapeHtml, formatValue, pluralUnit } from '../../shared/formatting';
+import { renderIcons } from '../../shared/icons';
 
 export interface HistoryFilters {
   trackerId: string;
@@ -53,7 +54,7 @@ function activityRowHtml(
 ): string {
   const tracker = trackerById(state, log.trackerId);
   if (!tracker) return '';
-  return `<div class="activity-row"><div class="activity-main"><div class="activity-icon" style="color:${tracker.color}">${escapeHtml(tracker.icon)}</div><div style="min-width:0"><p class="activity-name">${escapeHtml(tracker.name)}</p><p class="activity-meta">${formatDateTime(log.occurredAt)}${log.note ? ` · ${escapeHtml(log.note)}` : ''}</p></div></div><div style="display:flex;align-items:center;gap:8px"><div class="activity-value">+${formatValue(log.value)} <span>${escapeHtml(pluralUnit(tracker.unit, log.value))}</span></div><div class="row-actions"><button class="row-action" data-edit-log="${escapeHtml(log.id)}" title="Edit" aria-label="Edit record">✎</button><button class="row-action" data-delete-log="${escapeHtml(log.id)}" title="Delete" aria-label="Delete record">✕</button></div></div></div>`;
+  return `<div class="activity-row"><div class="activity-main"><div class="activity-icon" style="color:${tracker.color}">${escapeHtml(tracker.icon)}</div><div style="min-width:0"><p class="activity-name">${escapeHtml(tracker.name)}</p><p class="activity-meta">${formatDateTime(log.occurredAt)}${log.note ? ` · ${escapeHtml(log.note)}` : ''}</p></div></div><div style="display:flex;align-items:center;gap:8px"><div class="activity-value">+${formatValue(log.value)} <span>${escapeHtml(pluralUnit(tracker.unit, log.value))}</span></div><div class="row-actions"><button class="row-action" data-edit-log="${escapeHtml(log.id)}" title="Edit" aria-label="Edit record"><i data-lucide="pencil"></i></button><button class="row-action" data-delete-log="${escapeHtml(log.id)}" title="Delete" aria-label="Delete record"><i data-lucide="trash-2"></i></button></div></div></div>`;
 }
 
 export function createHistoryController(
@@ -97,6 +98,7 @@ export function createHistoryController(
     groups.innerHTML = [...groupedLogs].map(([dateKey, dateLogs]) => (
       `<section><h3 class="history-date">${formatDateHeading(`${dateKey}T12:00:00`)}</h3><div class="activity-list">${dateLogs.map(log => activityRowHtml(currentState as Readonly<AppState>, log)).join('')}</div></section>`
     )).join('');
+    renderIcons(groups);
   };
 
   const handleGroupsClick = (event: Event): void => {
