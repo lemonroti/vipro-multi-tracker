@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../app/app_environment.dart';
 import '../data/tracker_store.dart';
 import '../database/app_database.dart';
 
@@ -24,6 +25,16 @@ Future<void> trackerWidgetBackgroundCallback(Uri? uri) async {
   final widgetId = int.tryParse(uri.queryParameters['id'] ?? '');
   if (widgetId == null) {
     return;
+  }
+
+  try {
+    Supabase.instance.client;
+  } catch (_) {
+    final environment = AppEnvironment.fromDefines();
+    await Supabase.initialize(
+      url: environment.supabaseUrl,
+      publishableKey: environment.supabasePublishableKey,
+    );
   }
 
   final session = Supabase.instance.client.auth.currentSession;
@@ -66,6 +77,7 @@ Future<void> trackerWidgetBackgroundCallback(Uri? uri) async {
       occurredAt: DateTime.now(),
       source: 'android-widget',
     );
+    await store.sync();
     await _saveStatus(widgetId, 'Recorded +${_number(value)} $unit'.trim());
   } catch (_) {
     await _saveStatus(widgetId, 'Saved locally — sync pending');
