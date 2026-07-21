@@ -2,6 +2,22 @@
 
 Responsive multi-tracker web app with custom units, offline-first logging, and Supabase cloud sync.
 
+## Tracker types
+
+- **Unit trackers** record positive numeric values with a unit, reusable quick values, and an
+  optional daily goal.
+- **Option trackers** record named actions. Enter 1–8 unique, comma-separated labels; surrounding
+  whitespace and empty entries are ignored, labels are compared case-insensitively, and each label
+  must contain 1–80 characters.
+
+Clicking an option logs that option immediately with the current timestamp. Manual records can use a
+chosen date and time. After a tracker has any records, its tracking type is locked. Option labels can
+still be renamed or reordered without losing record ownership. Removing an option requires
+confirmation and permanently deletes every record associated with that option.
+
+Backups use state version 4 so they can preserve option definitions and option records. Version 3
+backups remain import-compatible and are normalized as Unit trackers and Unit records.
+
 ## Stack
 
 - Vite, TypeScript, HTML and CSS
