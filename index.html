@@ -219,7 +219,8 @@
         <input id="logEditId" type="hidden" />
         <div class="form-grid two">
           <div class="field"><label for="logTracker">Tracker</label><select id="logTracker" class="select" required></select></div>
-          <div class="field"><label for="logValue">Value</label><input id="logValue" class="input" type="number" min="0.01" step="any" required /></div>
+          <div id="logValueField" class="field"><label for="logValue">Value</label><input id="logValue" class="input" type="number" min="0.01" step="any" required /></div>
+          <div id="logOptionField" class="field" hidden><label for="logOption">Option</label><select id="logOption" class="select"></select></div>
           <div class="field" style="grid-column:1/-1"><label for="logDateTime">Date and time</label><input id="logDateTime" class="input" type="datetime-local" required /></div>
           <div class="field" style="grid-column:1/-1"><label for="logNote">Note (optional)</label><textarea id="logNote" class="textarea" maxlength="500" placeholder="Anything useful about this record"></textarea></div>
         </div>

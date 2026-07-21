@@ -19,10 +19,21 @@ const LOG: TrackingLog = {
 };
 const OPTION_TRACKER: Tracker = {
   id: 'routine', name: 'Routine', inputType: 'option', unit: null, icon: '✦',
-  color: '#334155', goal: null, presets: [], options: [{
-    id: 'sleep', label: 'Sleep', sortOrder: 0, createdAt: '2026-07-20T00:00:00.000Z'
-  }],
+  color: '#334155', goal: null, presets: [], options: [
+    {
+      id: 'wake', label: 'Wake', sortOrder: 0, createdAt: '2026-07-20T00:00:00.000Z'
+    },
+    {
+      id: 'sleep', label: '<Sleep & rest>', sortOrder: 1,
+      createdAt: '2026-07-20T00:00:00.000Z'
+    }
+  ],
   active: true, sortOrder: 1, createdAt: '2026-07-20T00:00:00.000Z'
+};
+const OPTION_LOG: TrackingLog = {
+  id: 'log-option', trackerId: 'routine', recordType: 'option', value: null,
+  optionId: 'sleep', occurredAt: new Date(2026, 6, 21, 8, 45).toISOString(),
+  note: ' Rested ', source: 'website'
 };
 
 function state(overrides: Partial<AppState> = {}): AppState {
@@ -44,7 +55,8 @@ function installDom(): void {
       <form id="logForm">
         <input id="logEditId" />
         <select id="logTracker"></select>
-        <input id="logValue" type="number" />
+        <div id="logValueField"><input id="logValue" type="number" /></div>
+        <div id="logOptionField" hidden><select id="logOption"></select></div>
         <input id="logDateTime" type="datetime-local" />
         <textarea id="logNote"></textarea>
       </form>
@@ -87,15 +99,34 @@ async function settle(): Promise<void> {
 describe('LogController', () => {
   beforeEach(installDom);
 
-  test('excludes Option trackers from the legacy numeric log selector', () => {
+  test('lists both tracker types with type-aware labels and fields', () => {
     const deps = dependencies(state({ trackers: [TRACKER, OPTION_TRACKER] }));
     const controller = createLogController(deps);
 
-    controller.populateTrackerOptions();
+    controller.openModal({ trackerId: 'water' });
 
     const options = [...document.querySelectorAll<HTMLOptionElement>('#logTracker option')];
-    expect(options.map(option => option.value)).toEqual(['water']);
-    expect(document.querySelector('#logTracker')?.textContent).not.toContain('Routine');
+    expect(options.map(option => [option.value, option.textContent])).toEqual([
+      ['water', 'Water (glass)'],
+      ['routine', 'Routine']
+    ]);
+    expect(document.querySelector<HTMLElement>('#logValueField')?.hidden).toBe(false);
+    expect(document.querySelector<HTMLElement>('#logOptionField')?.hidden).toBe(true);
+
+    const trackerSelect = document.querySelector<HTMLSelectElement>('#logTracker')!;
+    trackerSelect.value = 'routine';
+    trackerSelect.dispatchEvent(new Event('change'));
+
+    expect(document.querySelector<HTMLElement>('#logValueField')?.hidden).toBe(true);
+    expect(document.querySelector<HTMLElement>('#logOptionField')?.hidden).toBe(false);
+    expect(document.querySelector<HTMLSelectElement>('#logOption')?.value).toBe('wake');
+    expect([...document.querySelectorAll<HTMLOptionElement>('#logOption option')]
+      .map(option => option.textContent)).toEqual(['Wake', '<Sleep & rest>']);
+    expect(document.querySelector('#logOption img')).toBeNull();
+
+    trackerSelect.value = 'water';
+    trackerSelect.dispatchEvent(new Event('change'));
+    expect(document.querySelector<HTMLInputElement>('#logValue')?.value).toBe('2');
   });
 
   test('populates tracker options and preserves an edited log using local datetime input', () => {
@@ -159,6 +190,70 @@ describe('LogController', () => {
     expect(deps.shell.showToast).toHaveBeenCalledWith('Water: +2 recorded', true);
   });
 
+  test('adds and edits manual Option records with their exact variant', async () => {
+    const addDeps = dependencies(state({ trackers: [TRACKER, OPTION_TRACKER] }));
+    const addController = createLogController(addDeps);
+    addController.openModal({ trackerId: 'routine' });
+    document.querySelector<HTMLSelectElement>('#logOption')!.value = 'sleep';
+    document.querySelector<HTMLInputElement>('#logDateTime')!.value = '2026-07-22T09:15';
+    document.querySelector<HTMLTextAreaElement>('#logNote')!.value = ' rested ';
+
+    document.querySelector<HTMLFormElement>('#logForm')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await settle();
+
+    expect(addDeps.service.add).toHaveBeenCalledWith({
+      recordType: 'option', trackerId: 'routine', optionId: 'sleep',
+      occurredAt: new Date(2026, 6, 22, 9, 15).toISOString(), note: 'rested'
+    });
+    expect(addDeps.shell.showToast).toHaveBeenCalledWith(
+      'Routine: <Sleep & rest> recorded',
+      true
+    );
+
+    installDom();
+    const editDeps = dependencies(state({
+      trackers: [TRACKER, OPTION_TRACKER],
+      logs: [LOG, OPTION_LOG]
+    }));
+    const editController = createLogController(editDeps);
+    editController.openModal({ logId: 'log-option' });
+
+    expect(document.querySelector<HTMLElement>('#logValueField')?.hidden).toBe(true);
+    expect(document.querySelector<HTMLElement>('#logOptionField')?.hidden).toBe(false);
+    expect(document.querySelector<HTMLSelectElement>('#logOption')?.value).toBe('sleep');
+    document.querySelector<HTMLSelectElement>('#logOption')!.value = 'wake';
+    document.querySelector<HTMLFormElement>('#logForm')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await settle();
+
+    expect(editDeps.service.update).toHaveBeenCalledWith('log-option', {
+      recordType: 'option', trackerId: 'routine', optionId: 'wake',
+      occurredAt: OPTION_LOG.occurredAt, note: 'Rested'
+    });
+    expect(editDeps.shell.showToast).toHaveBeenCalledWith('Record updated');
+  });
+
+  test('rejects a manual Option selection that is no longer owned by the tracker', async () => {
+    let current = state({ trackers: [TRACKER, OPTION_TRACKER] });
+    const deps = dependencies(current);
+    deps.store.getState = () => structuredClone(current);
+    const controller = createLogController(deps);
+    controller.openModal({ trackerId: 'routine' });
+    current = state({
+      trackers: [TRACKER, { ...OPTION_TRACKER, options: [OPTION_TRACKER.options[0]!] }]
+    });
+    document.querySelector<HTMLSelectElement>('#logOption')!.value = 'sleep';
+
+    document.querySelector<HTMLFormElement>('#logForm')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await settle();
+
+    expect(deps.service.add).not.toHaveBeenCalled();
+    expect(deps.shell.showToast).toHaveBeenCalledWith('Select a valid option');
+    expect(deps.shell.closeModal).not.toHaveBeenCalled();
+  });
+
   test('confirms deletion and exposes undo only after a successful mutation', async () => {
     const deps = dependencies();
     const confirmDelete = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValue(true);
@@ -205,5 +300,50 @@ describe('LogController', () => {
     document.querySelector<HTMLButtonElement>('#toastUndo')?.click();
     await settle();
     expect(deps.service.undoLast).not.toHaveBeenCalled();
+  });
+
+  test('records an owned Option immediately with the current timestamp', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-21T03:04:05.000Z'));
+    try {
+      const deps = dependencies(state({ trackers: [TRACKER, OPTION_TRACKER] }));
+      const controller = createLogController(deps);
+
+      await controller.addQuickOptionLog('routine', 'sleep');
+
+      expect(deps.service.add).toHaveBeenCalledWith({
+        recordType: 'option', trackerId: 'routine', optionId: 'sleep',
+        occurredAt: '2026-07-21T03:04:05.000Z', note: ''
+      });
+      expect(deps.shell.showToast).toHaveBeenCalledWith(
+        'Routine: <Sleep & rest> recorded',
+        true
+      );
+
+      await controller.addQuickOptionLog('routine', 'missing');
+      await controller.addQuickOptionLog('water', 'sleep');
+      expect(deps.service.add).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test('recreates the original Option record variant when deletion is undone', async () => {
+    const deps = dependencies(state({
+      trackers: [TRACKER, OPTION_TRACKER],
+      logs: [LOG, OPTION_LOG]
+    }));
+    const confirmDelete = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const controller = createLogController(deps);
+
+    await controller.deleteLog('log-option');
+    document.querySelector<HTMLButtonElement>('#toastUndo')?.click();
+    await settle();
+
+    expect(deps.service.add).toHaveBeenCalledWith({
+      recordType: 'option', trackerId: 'routine', optionId: 'sleep',
+      occurredAt: OPTION_LOG.occurredAt, note: ' Rested '
+    });
+    confirmDelete.mockRestore();
   });
 });
