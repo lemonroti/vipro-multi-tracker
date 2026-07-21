@@ -78,16 +78,18 @@ class WidgetConfigurations extends Table {
   Set<Column<Object>> get primaryKey => {appWidgetId};
 }
 
-@DriftDatabase(tables: [
-  LocalTrackers,
-  LocalTrackingLogs,
-  LocalUserSettings,
-  PendingSyncOperations,
-  WidgetConfigurations,
-])
+@DriftDatabase(
+  tables: [
+    LocalTrackers,
+    LocalTrackingLogs,
+    LocalUserSettings,
+    PendingSyncOperations,
+    WidgetConfigurations,
+  ],
+)
 final class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
-      : super(executor ?? driftDatabase(name: 'vipro_multi_tracker'));
+    : super(executor ?? driftDatabase(name: 'vipro_multi_tracker'));
 
   @override
   int get schemaVersion => 1;
@@ -153,13 +155,16 @@ final class AppDatabase extends _$AppDatabase {
     DateTime deletedAt,
     PendingSyncOperationsCompanion operation,
   ) => transaction(() async {
-    await (update(localTrackers)
-          ..where((row) => row.id.equals(trackerId) & row.userId.equals(userId)))
-        .write(LocalTrackersCompanion(
-      deletedAt: Value(deletedAt),
-      updatedAt: Value(deletedAt),
-      syncState: const Value('pending'),
-    ));
+    await (update(
+          localTrackers,
+        )..where((row) => row.id.equals(trackerId) & row.userId.equals(userId)))
+        .write(
+          LocalTrackersCompanion(
+            deletedAt: Value(deletedAt),
+            updatedAt: Value(deletedAt),
+            syncState: const Value('pending'),
+          ),
+        );
     await compactAndInsert(operation);
   });
 
@@ -169,29 +174,37 @@ final class AppDatabase extends _$AppDatabase {
     DateTime deletedAt,
     PendingSyncOperationsCompanion operation,
   ) => transaction(() async {
-    await (update(localTrackingLogs)
-          ..where((row) => row.id.equals(logId) & row.userId.equals(userId)))
-        .write(LocalTrackingLogsCompanion(
-      deletedAt: Value(deletedAt),
-      updatedAt: Value(deletedAt),
-      syncState: const Value('pending'),
-    ));
+    await (update(
+      localTrackingLogs,
+    )..where((row) => row.id.equals(logId) & row.userId.equals(userId))).write(
+      LocalTrackingLogsCompanion(
+        deletedAt: Value(deletedAt),
+        updatedAt: Value(deletedAt),
+        syncState: const Value('pending'),
+      ),
+    );
     await compactAndInsert(operation);
   });
 
-  Future<void> compactAndInsert(PendingSyncOperationsCompanion operation) async {
+  Future<void> compactAndInsert(
+    PendingSyncOperationsCompanion operation,
+  ) async {
     final userId = operation.userId.value;
-    final entityId = operation.entityId.present ? operation.entityId.value : null;
+    final entityId = operation.entityId.present
+        ? operation.entityId.value
+        : null;
     final type = operation.operationType.value;
     if (entityId != null) {
-      await (delete(pendingSyncOperations)
-            ..where((row) =>
-                row.userId.equals(userId) & row.entityId.equals(entityId)))
+      await (delete(pendingSyncOperations)..where(
+            (row) => row.userId.equals(userId) & row.entityId.equals(entityId),
+          ))
           .go();
     } else if (type == 'saveSettings') {
-      await (delete(pendingSyncOperations)
-            ..where((row) => row.userId.equals(userId) &
-                row.operationType.equals('saveSettings')))
+      await (delete(pendingSyncOperations)..where(
+            (row) =>
+                row.userId.equals(userId) &
+                row.operationType.equals('saveSettings'),
+          ))
           .go();
     }
     await into(pendingSyncOperations).insert(operation);
@@ -207,12 +220,18 @@ final class AppDatabase extends _$AppDatabase {
   Future<void> removePending(String id) =>
       (delete(pendingSyncOperations)..where((row) => row.id.equals(id))).go();
 
-  Future<void> failPending(String id, String error, {bool increment = true}) async {
-    final current = await (select(pendingSyncOperations)
-          ..where((row) => row.id.equals(id)))
-        .getSingleOrNull();
+  Future<void> failPending(
+    String id,
+    String error, {
+    bool increment = true,
+  }) async {
+    final current = await (select(
+      pendingSyncOperations,
+    )..where((row) => row.id.equals(id))).getSingleOrNull();
     if (current == null) return;
-    await (update(pendingSyncOperations)..where((row) => row.id.equals(id))).write(
+    await (update(
+      pendingSyncOperations,
+    )..where((row) => row.id.equals(id))).write(
       PendingSyncOperationsCompanion(
         retryCount: Value(current.retryCount + (increment ? 1 : 0)),
         lastError: Value(error),
@@ -226,8 +245,12 @@ final class AppDatabase extends _$AppDatabase {
     required Iterable<LocalTrackingLogsCompanion> logs,
     LocalUserSettingsCompanion? settings,
   }) => transaction(() async {
-    await (delete(localTrackingLogs)..where((row) => row.userId.equals(userId))).go();
-    await (delete(localTrackers)..where((row) => row.userId.equals(userId))).go();
+    await (delete(
+      localTrackingLogs,
+    )..where((row) => row.userId.equals(userId))).go();
+    await (delete(
+      localTrackers,
+    )..where((row) => row.userId.equals(userId))).go();
     for (final tracker in trackers) {
       await into(localTrackers).insert(tracker);
     }

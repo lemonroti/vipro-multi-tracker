@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 enum ThemePreference { system, light, dark }
+
 enum EntitySyncState { synced, pending, failed }
+
 enum PendingOperationType {
   upsertTracker,
   deleteTracker,
@@ -173,20 +175,21 @@ class TrackingLogModel {
     'deletedAt': deletedAt?.toIso8601String(),
   };
 
-  factory TrackingLogModel.fromJson(Map<String, dynamic> json) => TrackingLogModel(
-    id: json['id'] as String,
-    userId: json['userId'] as String,
-    trackerId: json['trackerId'] as String,
-    value: (json['value'] as num).toDouble(),
-    occurredAt: DateTime.parse(json['occurredAt'] as String),
-    note: json['note'] as String? ?? '',
-    source: json['source'] as String? ?? 'android',
-    updatedAt: DateTime.parse(json['updatedAt'] as String),
-    syncState: EntitySyncState.values.byName(json['syncState'] as String),
-    deletedAt: json['deletedAt'] == null
-        ? null
-        : DateTime.parse(json['deletedAt'] as String),
-  );
+  factory TrackingLogModel.fromJson(Map<String, dynamic> json) =>
+      TrackingLogModel(
+        id: json['id'] as String,
+        userId: json['userId'] as String,
+        trackerId: json['trackerId'] as String,
+        value: (json['value'] as num).toDouble(),
+        occurredAt: DateTime.parse(json['occurredAt'] as String),
+        note: json['note'] as String? ?? '',
+        source: json['source'] as String? ?? 'android',
+        updatedAt: DateTime.parse(json['updatedAt'] as String),
+        syncState: EntitySyncState.values.byName(json['syncState'] as String),
+        deletedAt: json['deletedAt'] == null
+            ? null
+            : DateTime.parse(json['deletedAt'] as String),
+      );
 }
 
 class UserSettingsModel {
@@ -288,11 +291,12 @@ TrackerInput validateTrackerInput(TrackerInput input) {
   final name = input.name.trim();
   final unit = input.unit.trim();
   final icon = input.icon.trim();
-  final presets = input.presets
-      .where((value) => value.isFinite && value > 0)
-      .toSet()
-      .toList()
-    ..sort();
+  final presets =
+      input.presets
+          .where((value) => value.isFinite && value > 0)
+          .toSet()
+          .toList()
+        ..sort();
   if (name.isEmpty || name.length > 80) {
     throw const FormatException('Tracker name must contain 1–80 characters.');
   }

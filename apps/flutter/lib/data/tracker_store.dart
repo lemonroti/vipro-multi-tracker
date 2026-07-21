@@ -15,8 +15,8 @@ class TrackerStore {
     required this.userId,
     Uuid? uuid,
     DateTime Function()? clock,
-  })  : _uuid = uuid ?? const Uuid(),
-        _clock = clock ?? DateTime.now;
+  }) : _uuid = uuid ?? const Uuid(),
+       _clock = clock ?? DateTime.now;
 
   final AppDatabase database;
   final SupabaseClient client;
@@ -32,11 +32,13 @@ class TrackerStore {
 
   Future<void> initialize() async {
     final now = _clock().toUtc();
-    final existing = await (database.select(database.localUserSettings)
-          ..where((row) => row.userId.equals(userId)))
-        .getSingleOrNull();
+    final existing = await (database.select(
+      database.localUserSettings,
+    )..where((row) => row.userId.equals(userId))).getSingleOrNull();
     if (existing == null) {
-      await database.into(database.localUserSettings).insert(
+      await database
+          .into(database.localUserSettings)
+          .insert(
             LocalUserSettingsCompanion.insert(
               userId: userId,
               updatedAt: now,
@@ -93,7 +95,11 @@ class TrackerStore {
     );
     await database.writeTrackerAndOperation(
       _trackerCompanion(tracker),
-      _operation(PendingOperationType.upsertTracker, current.id, tracker.toJson()),
+      _operation(
+        PendingOperationType.upsertTracker,
+        current.id,
+        tracker.toJson(),
+      ),
     );
     unawaited(sync());
   }
@@ -119,12 +125,14 @@ class TrackerStore {
     String note = '',
     String source = 'android',
   }) async {
-    final input = validateLogInput(LogInput(
-      trackerId: trackerId,
-      value: value,
-      occurredAt: occurredAt,
-      note: note,
-    ));
+    final input = validateLogInput(
+      LogInput(
+        trackerId: trackerId,
+        value: value,
+        occurredAt: occurredAt,
+        note: note,
+      ),
+    );
     final now = _clock().toUtc();
     final id = _uuid.v4();
     final log = TrackingLogModel(
@@ -151,12 +159,14 @@ class TrackerStore {
     required DateTime occurredAt,
     required String note,
   }) async {
-    final input = validateLogInput(LogInput(
-      trackerId: current.trackerId,
-      value: value,
-      occurredAt: occurredAt,
-      note: note,
-    ));
+    final input = validateLogInput(
+      LogInput(
+        trackerId: current.trackerId,
+        value: value,
+        occurredAt: occurredAt,
+        note: note,
+      ),
+    );
     final now = _clock().toUtc();
     final log = TrackingLogModel(
       id: current.id,
@@ -259,9 +269,7 @@ class TrackerStore {
         await client.from('user_settings').upsert({
           'user_id': userId,
           'theme': payload['theme'],
-          'preferences': {
-            'confirmDelete': payload['confirmDelete'] ?? true,
-          },
+          'preferences': {'confirmDelete': payload['confirmDelete'] ?? true},
           'dashboard_layout': <String, dynamic>{},
         });
     }
@@ -283,11 +291,12 @@ class TrackerStore {
         .select()
         .eq('user_id', userId)
         .maybeSingle();
-    final trackers = (trackerRows as List)
-        .cast<Map<String, dynamic>>()
-        .map(_trackerFromCloud);
-    final logs =
-        (logRows as List).cast<Map<String, dynamic>>().map(_logFromCloud);
+    final trackers = (trackerRows as List).cast<Map<String, dynamic>>().map(
+      _trackerFromCloud,
+    );
+    final logs = (logRows as List).cast<Map<String, dynamic>>().map(
+      _logFromCloud,
+    );
     LocalUserSettingsCompanion? settings;
     if (settingsRow != null) {
       final preferences =
@@ -295,8 +304,7 @@ class TrackerStore {
       settings = LocalUserSettingsCompanion(
         userId: Value(userId),
         theme: Value(settingsRow['theme'] as String? ?? 'system'),
-        confirmDelete:
-            Value(preferences['confirmDelete'] as bool? ?? true),
+        confirmDelete: Value(preferences['confirmDelete'] as bool? ?? true),
         updatedAt: Value(
           DateTime.parse(settingsRow['updated_at'] as String).toUtc(),
         ),
@@ -315,15 +323,14 @@ class TrackerStore {
     PendingOperationType type,
     String? entityId,
     Map<String, Object?> payload,
-  ) =>
-      PendingSyncOperationsCompanion.insert(
-        id: _uuid.v4(),
-        userId: userId,
-        operationType: type.name,
-        entityId: Value(entityId),
-        payloadJson: jsonEncode(payload),
-        createdAt: _clock().toUtc(),
-      );
+  ) => PendingSyncOperationsCompanion.insert(
+    id: _uuid.v4(),
+    userId: userId,
+    operationType: type.name,
+    entityId: Value(entityId),
+    payloadJson: jsonEncode(payload),
+    createdAt: _clock().toUtc(),
+  );
 
   LocalTrackersCompanion _trackerCompanion(TrackerModel tracker) =>
       LocalTrackersCompanion(
@@ -375,12 +382,8 @@ class TrackerStore {
         ),
         active: Value(row['is_active'] as bool? ?? true),
         sortOrder: Value(row['sort_order'] as int? ?? 0),
-        createdAt: Value(
-          DateTime.parse(row['created_at'] as String).toUtc(),
-        ),
-        updatedAt: Value(
-          DateTime.parse(row['updated_at'] as String).toUtc(),
-        ),
+        createdAt: Value(DateTime.parse(row['created_at'] as String).toUtc()),
+        updatedAt: Value(DateTime.parse(row['updated_at'] as String).toUtc()),
         syncState: const Value('synced'),
         deletedAt: const Value(null),
       );
@@ -391,39 +394,35 @@ class TrackerStore {
         userId: Value(userId),
         trackerId: Value(row['tracker_id'] as String),
         value: Value((row['value'] as num).toDouble()),
-        occurredAt: Value(
-          DateTime.parse(row['occurred_at'] as String).toUtc(),
-        ),
+        occurredAt: Value(DateTime.parse(row['occurred_at'] as String).toUtc()),
         note: Value(row['note'] as String? ?? ''),
         source: Value(row['source'] as String? ?? 'android'),
-        updatedAt: Value(
-          DateTime.parse(row['updated_at'] as String).toUtc(),
-        ),
+        updatedAt: Value(DateTime.parse(row['updated_at'] as String).toUtc()),
         syncState: const Value('synced'),
         deletedAt: const Value(null),
       );
 
   Map<String, dynamic> _trackerCloud(Map<String, dynamic> item) => {
-        'id': item['id'],
-        'user_id': userId,
-        'name': item['name'],
-        'unit': item['unit'],
-        'icon': item['icon'],
-        'color': item['color'],
-        'daily_goal': item['goal'],
-        'quick_values': item['presets'],
-        'is_active': item['active'],
-        'sort_order': item['sortOrder'],
-      };
+    'id': item['id'],
+    'user_id': userId,
+    'name': item['name'],
+    'unit': item['unit'],
+    'icon': item['icon'],
+    'color': item['color'],
+    'daily_goal': item['goal'],
+    'quick_values': item['presets'],
+    'is_active': item['active'],
+    'sort_order': item['sortOrder'],
+  };
 
   Map<String, dynamic> _logCloud(Map<String, dynamic> item) => {
-        'id': item['id'],
-        'user_id': userId,
-        'tracker_id': item['trackerId'],
-        'value': item['value'],
-        'occurred_at': item['occurredAt'],
-        'note': (item['note'] as String).isEmpty ? null : item['note'],
-        'source': item['source'],
-        'client_id': item['id'],
-      };
+    'id': item['id'],
+    'user_id': userId,
+    'tracker_id': item['trackerId'],
+    'value': item['value'],
+    'occurred_at': item['occurredAt'],
+    'note': (item['note'] as String).isEmpty ? null : item['note'],
+    'source': item['source'],
+    'client_id': item['id'],
+  };
 }

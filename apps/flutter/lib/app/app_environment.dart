@@ -13,9 +13,6 @@ class AppEnvironment {
     if (url.isEmpty || key.isEmpty) {
       throw StateError('Supabase configuration is missing.');
     }
-    return const AppEnvironment(
-      supabaseUrl: url,
-      supabasePublishableKey: key,
-    );
+    return const AppEnvironment(supabaseUrl: url, supabasePublishableKey: key);
   }
 }

@@ -25,7 +25,10 @@ class _AuthScreenState extends State<AuthScreen> {
     final email = _email.text.trim();
     final password = _password.text;
     if (!email.contains('@') || password.length < 6) {
-      setState(() => _error = 'Enter a valid email and a password of at least 6 characters.');
+      setState(
+        () => _error =
+            'Enter a valid email and a password of at least 6 characters.',
+      );
       return;
     }
     setState(() {
@@ -34,9 +37,15 @@ class _AuthScreenState extends State<AuthScreen> {
     });
     try {
       if (signUp) {
-        await Supabase.instance.client.auth.signUp(email: email, password: password);
+        await Supabase.instance.client.auth.signUp(
+          email: email,
+          password: password,
+        );
       } else {
-        await Supabase.instance.client.auth.signInWithPassword(email: email, password: password);
+        await Supabase.instance.client.auth.signInWithPassword(
+          email: email,
+          password: password,
+        );
       }
     } on AuthException catch (error) {
       if (mounted) setState(() => _error = error.message);
@@ -64,10 +73,14 @@ class _AuthScreenState extends State<AuthScreen> {
                       const SizedBox(height: 20),
                       Text(
                         'Welcome back',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 8),
-                      Text('Sign in to sync your trackers across devices.', style: Theme.of(context).textTheme.bodyMedium),
+                      Text(
+                        'Sign in to sync your trackers across devices.',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
                       const SizedBox(height: 24),
                       TextField(
                         controller: _email,
@@ -78,11 +91,18 @@ class _AuthScreenState extends State<AuthScreen> {
                       TextField(
                         controller: _password,
                         obscureText: true,
-                        decoration: const InputDecoration(labelText: 'Password'),
+                        decoration: const InputDecoration(
+                          labelText: 'Password',
+                        ),
                       ),
                       if (_error != null) ...[
                         const SizedBox(height: 12),
-                        Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                        Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
                       ],
                       const SizedBox(height: 20),
                       FilledButton(

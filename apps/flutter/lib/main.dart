@@ -10,7 +10,7 @@ Future<void> main() async {
   final environment = AppEnvironment.fromDefines();
   await Supabase.initialize(
     url: environment.supabaseUrl,
-    anonKey: environment.supabasePublishableKey,
+    publishableKey: environment.supabasePublishableKey,
   );
   runApp(TrackerApp(database: AppDatabase()));
 }

@@ -14,34 +14,38 @@ void main() {
 
   test('tracker streams are isolated by user', () async {
     final now = DateTime.utc(2026, 7, 21);
-    await database.into(database.localTrackers).insert(
-      LocalTrackersCompanion.insert(
-        id: 'a',
-        userId: 'user-a',
-        name: 'A',
-        unit: 'count',
-        icon: 'A',
-        color: '#000000',
-        presetsJson: '[1]',
-        createdAt: now,
-        updatedAt: now,
-        syncState: 'synced',
-      ),
-    );
-    await database.into(database.localTrackers).insert(
-      LocalTrackersCompanion.insert(
-        id: 'b',
-        userId: 'user-b',
-        name: 'B',
-        unit: 'count',
-        icon: 'B',
-        color: '#000000',
-        presetsJson: '[1]',
-        createdAt: now,
-        updatedAt: now,
-        syncState: 'synced',
-      ),
-    );
+    await database
+        .into(database.localTrackers)
+        .insert(
+          LocalTrackersCompanion.insert(
+            id: 'a',
+            userId: 'user-a',
+            name: 'A',
+            unit: 'count',
+            icon: 'A',
+            color: '#000000',
+            presetsJson: '[1]',
+            createdAt: now,
+            updatedAt: now,
+            syncState: 'synced',
+          ),
+        );
+    await database
+        .into(database.localTrackers)
+        .insert(
+          LocalTrackersCompanion.insert(
+            id: 'b',
+            userId: 'user-b',
+            name: 'B',
+            unit: 'count',
+            icon: 'B',
+            color: '#000000',
+            presetsJson: '[1]',
+            createdAt: now,
+            updatedAt: now,
+            syncState: 'synced',
+          ),
+        );
     final rows = await database.watchTrackers('user-a').first;
     expect(rows.map((row) => row.id), ['a']);
   });
