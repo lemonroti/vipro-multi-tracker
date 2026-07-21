@@ -1,3 +1,4 @@
+import '@fontsource-variable/geist/wght.css';
 import type { OfflineOperation } from './domain/operations';
 import type { ApplicationRuntime } from './runtime/application-runtime';
 import { createProductionRuntime } from './runtime/application-runtime';
@@ -9,6 +10,7 @@ import { createSettingsController, type DownloadRequest } from './features/setti
 import { createShellController } from './features/shell';
 import { createTrackerController } from './features/trackers';
 import { createAppStore } from './state/app-store';
+import { renderIcons } from './shared/icons';
 import type { SessionUser } from './services/auth-service';
 import { UserCache } from './services/cache';
 import { BackupService } from './services/backup-service';
@@ -69,6 +71,7 @@ export function handleFatalStartupError(error: unknown): void {
 export async function startApplication(): Promise<void> {
   if (started) return;
   started = true;
+  renderIcons();
 
   const runtime = await resolveRuntime();
   const authService = runtime.authService;
@@ -226,6 +229,7 @@ export async function startApplication(): Promise<void> {
       historyController.render(state);
       trackerController.render(state);
       settingsController.render(state);
+      renderIcons();
     };
     const stopFeatureListener = store.subscribe(renderFeatures);
     renderFeatures(store.getState());

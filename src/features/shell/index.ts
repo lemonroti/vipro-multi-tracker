@@ -29,11 +29,11 @@ interface PageMetadata {
 const PAGE_METADATA: Record<ViewName, PageMetadata> = {
   dashboard: {
     title: 'Your daily tracking',
-    action: '+ Add tracker',
+    action: 'Add tracker',
     actionType: 'tracker'
   },
-  history: { title: 'History', action: '+ Add record', actionType: 'log' },
-  trackers: { title: 'Manage trackers', action: '+ New tracker', actionType: 'tracker' },
+  history: { title: 'History', action: 'Add record', actionType: 'log' },
+  trackers: { title: 'Manage trackers', action: 'New tracker', actionType: 'tracker' },
   settings: { title: 'Settings', action: '', actionType: '' }
 };
 
@@ -93,7 +93,9 @@ export function createShellController(): ShellController {
     const metadata = PAGE_METADATA[view];
     getElement('#pageTitle').textContent = metadata.title;
     const action = getElement<HTMLButtonElement>('#headerAction');
-    action.textContent = metadata.action;
+    getElement('#headerActionLabel').textContent = metadata.action;
+    if (metadata.action) action.setAttribute('aria-label', `+ ${metadata.action}`);
+    else action.removeAttribute('aria-label');
     action.hidden = metadata.action === '';
     action.dataset.actionType = metadata.actionType;
     updateGreeting();

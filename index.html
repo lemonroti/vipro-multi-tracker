@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#0f172a" />
   <meta name="description" content="A flexible personal multi-tracker with cloud sync and offline recording." />
   <title>My Tracker</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/src/styles/app.css" />
 </head>
 <body>
@@ -34,10 +35,10 @@
         <div><h1>My Tracker</h1><p>Cloud-synced tracking</p></div>
       </div>
       <nav class="nav-stack">
-        <a class="nav-button active" data-nav="dashboard" href="#view-dashboard"><span class="nav-icon">⌂</span><span>Dashboard</span></a>
-        <a class="nav-button" data-nav="history" href="#view-history"><span class="nav-icon">▤</span><span>History</span></a>
-        <a class="nav-button" data-nav="trackers" href="#view-trackers"><span class="nav-icon">◫</span><span>Trackers</span></a>
-        <a class="nav-button" data-nav="settings" href="#view-settings"><span class="nav-icon">⚙</span><span>Settings</span></a>
+        <a class="nav-button active" data-nav="dashboard" href="#view-dashboard"><i class="nav-icon" data-lucide="house"></i><span>Dashboard</span></a>
+        <a class="nav-button" data-nav="history" href="#view-history"><i class="nav-icon" data-lucide="history"></i><span>History</span></a>
+        <a class="nav-button" data-nav="trackers" href="#view-trackers"><i class="nav-icon" data-lucide="layout-grid"></i><span>Trackers</span></a>
+        <a class="nav-button" data-nav="settings" href="#view-settings"><i class="nav-icon" data-lucide="settings"></i><span>Settings</span></a>
       </nav>
       <div class="prototype-note cloud-note"><strong><span id="sidebarStatusDot" class="status-dot"></span><span id="sidebarStatusTitle">Cloud sync active</span></strong><span id="sidebarStatusText">Changes are saved to Supabase and cached locally for offline use.</span></div>
     </aside>
@@ -50,7 +51,7 @@
         </div>
         <div class="top-actions">
           <div id="syncBadge" class="sync-badge"><span id="syncBadgeDot" class="status-dot"></span><span id="syncBadgeText">Synced</span></div>
-          <button id="headerAction" class="button primary">+ Add tracker</button>
+          <button id="headerAction" class="button primary" aria-label="+ Add tracker"><i data-lucide="plus"></i><span id="headerActionLabel">Add tracker</span></button>
         </div>
       </header>
 
@@ -67,7 +68,7 @@
           <section class="section">
             <div class="section-head">
               <div><p class="section-kicker">Quick record</p><h2>Today</h2></div>
-              <button class="button ghost small" data-open-log>Add manual record</button>
+              <button class="button ghost small" data-open-log><i data-lucide="plus"></i><span>Add manual record</span></button>
             </div>
             <div id="dashboardTrackerGrid" class="grid tracker-grid"></div>
           </section>
@@ -95,7 +96,7 @@
           <article class="card card-pad">
             <div class="section-head">
               <div><p class="section-kicker">All records</p><h2>Tracking history</h2></div>
-              <button class="button primary small" data-open-log>+ Add record</button>
+              <button class="button primary small" data-open-log aria-label="+ Add record"><i data-lucide="plus"></i><span>Add record</span></button>
             </div>
             <div class="filters">
               <div class="field"><label for="historyTracker">Tracker</label><select id="historyTracker" class="select"></select></div>
@@ -110,7 +111,7 @@
         <section id="view-trackers" class="view" hidden>
           <div class="section-head">
             <div><p class="section-kicker">Configure</p><h2>Your trackers</h2><p class="section-help">Change quick values, goals, icons, and visibility.</p></div>
-            <button class="button primary" data-open-tracker>+ New tracker</button>
+            <button class="button primary" data-open-tracker aria-label="+ New tracker"><i data-lucide="plus"></i><span>New tracker</span></button>
           </div>
           <div id="trackerManageList" class="manage-list"></div>
         </section>
@@ -162,15 +163,15 @@
   </div>
 
   <nav id="mobileNav" class="mobile-nav" aria-label="Mobile navigation" hidden>
-    <a class="nav-button active" data-nav="dashboard" href="#view-dashboard"><span class="nav-icon">⌂</span><span>Home</span></a>
-    <a class="nav-button" data-nav="history" href="#view-history"><span class="nav-icon">▤</span><span>History</span></a>
-    <a class="nav-button" data-nav="trackers" href="#view-trackers"><span class="nav-icon">◫</span><span>Trackers</span></a>
-    <a class="nav-button" data-nav="settings" href="#view-settings"><span class="nav-icon">⚙</span><span>Settings</span></a>
+    <a class="nav-button active" data-nav="dashboard" href="#view-dashboard"><i class="nav-icon" data-lucide="house"></i><span>Home</span></a>
+    <a class="nav-button" data-nav="history" href="#view-history"><i class="nav-icon" data-lucide="history"></i><span>History</span></a>
+    <a class="nav-button" data-nav="trackers" href="#view-trackers"><i class="nav-icon" data-lucide="layout-grid"></i><span>Trackers</span></a>
+    <a class="nav-button" data-nav="settings" href="#view-settings"><i class="nav-icon" data-lucide="settings"></i><span>Settings</span></a>
   </nav>
 
   <div id="trackerModal" class="modal-backdrop" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="trackerModalTitle">
-      <div class="modal-head"><div><p class="modal-kicker">Tracker setup</p><h2 id="trackerModalTitle">Create tracker</h2></div><button class="icon-button" data-close-modal="trackerModal">✕</button></div>
+      <div class="modal-head"><div><p class="modal-kicker">Tracker setup</p><h2 id="trackerModalTitle">Create tracker</h2></div><button class="icon-button" data-close-modal="trackerModal" aria-label="Close tracker dialog"><i data-lucide="x"></i></button></div>
       <form id="trackerForm">
         <input id="trackerEditId" type="hidden" />
         <div class="form-grid two">
@@ -188,7 +189,7 @@
 
   <div id="logModal" class="modal-backdrop" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="logModalTitle">
-      <div class="modal-head"><div><p class="modal-kicker">Record details</p><h2 id="logModalTitle">Add record</h2></div><button class="icon-button" data-close-modal="logModal">✕</button></div>
+      <div class="modal-head"><div><p class="modal-kicker">Record details</p><h2 id="logModalTitle">Add record</h2></div><button class="icon-button" data-close-modal="logModal" aria-label="Close record dialog"><i data-lucide="x"></i></button></div>
       <form id="logForm">
         <input id="logEditId" type="hidden" />
         <div class="form-grid two">

@@ -6,6 +6,15 @@ test('desktop navigation changes views and persists a dark theme', async ({ page
 
   await expect(page.locator('.sidebar')).toBeVisible();
   await expect(page.locator('#mobileNav')).toBeHidden();
+  await expect(page.locator('#headerAction')).toBeVisible();
+  await expect(page.locator('.sidebar svg[data-lucide="house"]')).toBeVisible();
+  await expect.poll(async () => page.locator('body').evaluate(element => (
+    getComputedStyle(element).fontFamily
+  ))).toContain('Geist Variable');
+  expect(await page.evaluate(async () => {
+    await document.fonts.ready;
+    return document.fonts.check('16px "Geist Variable"');
+  })).toBe(true);
   await page.locator('.sidebar').getByRole('link', { name: 'Settings' }).click();
   await expect(page.locator('#view-settings')).toBeVisible();
   await page.getByLabel('Theme').selectOption('dark');
@@ -18,6 +27,11 @@ test('mobile navigation changes views without showing the desktop sidebar', asyn
 
   await expect(page.locator('.sidebar')).toBeHidden();
   await expect(page.locator('#mobileNav')).toBeVisible();
+  await expect(page.locator('#headerAction')).toBeVisible();
+  await expect(page.locator('#mobileNav svg[data-lucide="house"]')).toBeVisible();
+  expect(await page.evaluate(() => (
+    document.documentElement.scrollWidth <= document.documentElement.clientWidth
+  ))).toBe(true);
   await page.locator('#mobileNav').getByRole('link', { name: 'History' }).click();
   await expect(page.locator('#view-history')).toBeVisible();
   await expect(page.locator('#pageTitle')).toHaveText('History');

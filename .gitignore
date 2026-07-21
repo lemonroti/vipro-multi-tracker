@@ -10,8 +10,11 @@ npm-debug.log*
 dist/
 playwright-report/
 test-results/
+.playwright-cli/
+output/playwright/
 supabase/.temp/
 .superpowers/
+.superdesign/tmp/
 
 # Operating system files
 .DS_Store
