@@ -211,6 +211,9 @@ export async function startApplication(): Promise<void> {
 
     const dashboardController = createDashboardController({
       addQuickLog: (trackerId, value) => logController.addQuickLog(trackerId, value),
+      addQuickOptionLog: (trackerId, optionId) => (
+        logController.addQuickOptionLog(trackerId, optionId)
+      ),
       openCustomLog(trackerId) {
         logController.openModal({ trackerId });
       },

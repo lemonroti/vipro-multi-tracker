@@ -1,4 +1,11 @@
-import type { AppState, Tracker, TrackingLog } from '../../domain/models';
+import type {
+  AppState,
+  OptionTrackingLog,
+  Tracker,
+  TrackerOption,
+  TrackingLog,
+  UnitTrackingLog
+} from '../../domain/models';
 import { formatDateHeading, formatDateTime, localDateKey } from '../../shared/dates';
 import { getElement } from '../../shared/dom';
 import { escapeHtml, formatValue, pluralUnit } from '../../shared/formatting';
@@ -28,6 +35,15 @@ function trackerById(state: Readonly<AppState>, id: string): Tracker | undefined
   return state.trackers.find(tracker => tracker.id === id);
 }
 
+function optionForLog(
+  state: Readonly<AppState>,
+  log: OptionTrackingLog
+): TrackerOption | undefined {
+  const tracker = trackerById(state, log.trackerId);
+  if (tracker?.inputType !== 'option') return undefined;
+  return tracker.options.find(option => option.id === log.optionId);
+}
+
 export function filterHistoryLogs(
   state: Readonly<AppState>,
   filters: Readonly<HistoryFilters>
@@ -53,8 +69,14 @@ function activityRowHtml(
   log: TrackingLog
 ): string {
   const tracker = trackerById(state, log.trackerId);
-  if (!tracker || tracker.inputType !== 'unit' || log.recordType !== 'unit') return '';
-  return `<div class="activity-row"><div class="activity-main"><div class="activity-icon" style="color:${tracker.color}">${escapeHtml(tracker.icon)}</div><div style="min-width:0"><p class="activity-name">${escapeHtml(tracker.name)}</p><p class="activity-meta">${formatDateTime(log.occurredAt)}${log.note ? ` · ${escapeHtml(log.note)}` : ''}</p></div></div><div style="display:flex;align-items:center;gap:8px"><div class="activity-value">+${formatValue(log.value)} <span>${escapeHtml(pluralUnit(tracker.unit, log.value))}</span></div><div class="row-actions"><button class="row-action" data-edit-log="${escapeHtml(log.id)}" title="Edit" aria-label="Edit record"><i data-lucide="pencil"></i></button><button class="row-action" data-delete-log="${escapeHtml(log.id)}" title="Delete" aria-label="Delete record"><i data-lucide="trash-2"></i></button></div></div></div>`;
+  if (!tracker || tracker.inputType !== log.recordType) return '';
+  const value = tracker.inputType === 'unit' && log.recordType === 'unit'
+    ? `+${formatValue(log.value)} <span>${escapeHtml(pluralUnit(tracker.unit, log.value))}</span>`
+    : log.recordType === 'option'
+      ? escapeHtml(optionForLog(state, log)?.label ?? '')
+      : '';
+  if (!value) return '';
+  return `<div class="activity-row"><div class="activity-main"><div class="activity-icon" style="color:${tracker.color}">${escapeHtml(tracker.icon)}</div><div style="min-width:0"><p class="activity-name">${escapeHtml(tracker.name)}</p><p class="activity-meta">${formatDateTime(log.occurredAt)}${log.note ? ` · ${escapeHtml(log.note)}` : ''}</p></div></div><div style="display:flex;align-items:center;gap:8px"><div class="activity-value">${value}</div><div class="row-actions"><button class="row-action" data-edit-log="${escapeHtml(log.id)}" title="Edit" aria-label="Edit record"><i data-lucide="pencil"></i></button><button class="row-action" data-delete-log="${escapeHtml(log.id)}" title="Delete" aria-label="Delete record"><i data-lucide="trash-2"></i></button></div></div></div>`;
 }
 
 export function createHistoryController(
@@ -75,9 +97,21 @@ export function createHistoryController(
   const renderHistory = (): void => {
     if (currentState === null) return;
     const logs = filterHistoryLogs(currentState, currentFilters());
-    const totalValue = logs.reduce((total, log) => total + Number(log.value), 0);
+    const unitLogs = logs.filter((log): log is UnitTrackingLog => {
+      const tracker = trackerById(currentState as Readonly<AppState>, log.trackerId);
+      return log.recordType === 'unit' && tracker?.inputType === 'unit';
+    });
+    const totalValue = unitLogs.reduce((total, log) => total + log.value, 0);
+    const units = new Set(unitLogs.map(log => {
+      const tracker = trackerById(currentState as Readonly<AppState>, log.trackerId);
+      return tracker?.inputType === 'unit' ? tracker.unit : undefined;
+    }));
+    const hasCompatibleNumericTotal = unitLogs.length === logs.length && units.size <= 1;
+    const valueCaption = hasCompatibleNumericTotal
+      ? `${formatValue(totalValue)} combined value`
+      : `${logs.length} ${logs.length === 1 ? 'record' : 'records'} shown`;
     const trackerCount = new Set(logs.map(log => log.trackerId)).size;
-    getElement('#historySummary').innerHTML = `<span class="summary-chip">${logs.length} ${logs.length === 1 ? 'record' : 'records'}</span><span class="summary-chip">${formatValue(totalValue)} combined value</span><span class="summary-chip">${trackerCount} ${trackerCount === 1 ? 'tracker' : 'trackers'}</span>`;
+    getElement('#historySummary').innerHTML = `<span class="summary-chip">${logs.length} ${logs.length === 1 ? 'record' : 'records'}</span><span class="summary-chip">${valueCaption}</span><span class="summary-chip">${trackerCount} ${trackerCount === 1 ? 'tracker' : 'trackers'}</span>`;
 
     if (!logs.length) {
       groups.innerHTML = emptyState(

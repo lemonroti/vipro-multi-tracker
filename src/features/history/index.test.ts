@@ -2,7 +2,13 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import type { AppState, UnitTracker, UnitTrackingLog } from '../../domain/models';
+import type {
+  AppState,
+  OptionTracker,
+  OptionTrackingLog,
+  UnitTracker,
+  UnitTrackingLog
+} from '../../domain/models';
 import {
   createHistoryController,
   filterHistoryLogs,
@@ -44,6 +50,39 @@ function log(
     optionId: null,
     occurredAt: occurredAt.toISOString(),
     note,
+    source: 'website'
+  };
+}
+
+function optionTracker(): OptionTracker {
+  return {
+    id: 'routine',
+    name: 'Routine',
+    icon: '☀',
+    color: '#7c3aed',
+    inputType: 'option',
+    unit: null,
+    goal: null,
+    presets: [],
+    options: [
+      { id: 'sleep-id', label: 'Sleep', sortOrder: 0, createdAt: JULY_20.toISOString() },
+      { id: 'wake-id', label: 'Wake', sortOrder: 1, createdAt: JULY_20.toISOString() }
+    ],
+    active: true,
+    sortOrder: 2,
+    createdAt: JULY_20.toISOString()
+  };
+}
+
+function optionLog(id: string, optionId: string): OptionTrackingLog {
+  return {
+    id,
+    trackerId: 'routine',
+    value: null,
+    recordType: 'option',
+    optionId,
+    occurredAt: JULY_21.toISOString(),
+    note: 'morning',
     source: 'website'
   };
 }
@@ -138,6 +177,33 @@ describe('HistoryController', () => {
     expect(
       document.querySelector<HTMLButtonElement>('[data-delete-log]')?.getAttribute('aria-label')
     ).toBe('Delete record');
+  });
+
+  test('renders option labels while keeping option records out of numeric summaries', () => {
+    const controller = createHistoryController(dependencies());
+    const snapshot = state();
+    snapshot.trackers = [
+      tracker('cigarettes', 'Cigarettes'),
+      optionTracker()
+    ];
+    snapshot.trackers[0] = { ...snapshot.trackers[0], unit: 'cigarette' } as UnitTracker;
+    snapshot.logs = [
+      log('unit-log', 'cigarettes', JULY_21, '', 1),
+      optionLog('option-log', 'wake-id')
+    ];
+
+    controller.render(snapshot);
+
+    expect(document.querySelector('#historyGroups')?.textContent).toContain('+1 cigarette');
+    expect(document.querySelector('#historyGroups')?.textContent).toContain('Wake');
+    expect(document.querySelector('#historyGroups')?.textContent).not.toContain('+null');
+    expect(document.querySelector('#historySummary')?.textContent).toContain('2 records');
+    expect(document.querySelector('#historySummary')?.textContent).not.toContain(
+      '1 combined value'
+    );
+    expect(document.querySelector('#historySummary')?.textContent).toContain(
+      '2 records shown'
+    );
   });
 
   test('reacts to all three filters while preserving their selected values', () => {

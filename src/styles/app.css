@@ -642,6 +642,12 @@ textarea:disabled {
   filter: brightness(0.94);
 }
 
+.option-quick-button {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .custom-button {
   min-width: 82px;
   border: 1px solid var(--control-border);

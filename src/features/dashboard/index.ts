@@ -1,5 +1,9 @@
 import type {
   AppState,
+  OptionTrackingLog,
+  Tracker,
+  TrackerOption,
+  TrackingLog,
   UnitTracker,
   UnitTrackingLog
 } from '../../domain/models';
@@ -14,6 +18,7 @@ import { renderIcons } from '../../shared/icons';
 
 export interface DashboardDependencies {
   addQuickLog(trackerId: string, value: number): Promise<void>;
+  addQuickOptionLog(trackerId: string, optionId: string): Promise<void>;
   openCustomLog(trackerId: string): void;
   openTrackerEditor(trackerId: string): void;
 }
@@ -27,41 +32,79 @@ function emptyState(icon: string, title: string, text: string): string {
   return `<div class="empty-state"><div class="emoji">${icon}</div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(text)}</p></div>`;
 }
 
-function newestLogs(state: Readonly<AppState>): UnitTrackingLog[] {
-  return state.logs.filter((log): log is UnitTrackingLog => log.recordType === 'unit').sort(
+function optionForLog(
+  state: Readonly<AppState>,
+  log: OptionTrackingLog
+): TrackerOption | undefined {
+  const tracker = state.trackers.find(candidate => (
+    candidate.id === log.trackerId && candidate.inputType === 'option'
+  ));
+  return tracker?.options.find(option => option.id === log.optionId);
+}
+
+function trackerForLog(
+  state: Readonly<AppState>,
+  log: TrackingLog
+): Tracker | undefined {
+  const tracker = state.trackers.find(candidate => candidate.id === log.trackerId);
+  if (!tracker || tracker.inputType !== log.recordType) return undefined;
+  if (log.recordType === 'option' && !optionForLog(state, log)) return undefined;
+  return tracker;
+}
+
+function newestLogs(state: Readonly<AppState>): TrackingLog[] {
+  return state.logs.filter(log => trackerForLog(state, log) !== undefined).sort(
     (left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime()
   );
 }
 
-function getTracker(state: Readonly<AppState>, id: string): UnitTracker | undefined {
-  return state.trackers.find((tracker): tracker is UnitTracker => (
-    tracker.id === id && tracker.inputType === 'unit'
-  ));
+function getTracker(state: Readonly<AppState>, id: string): Tracker | undefined {
+  return state.trackers.find(tracker => tracker.id === id);
 }
 
-function totalForDate(state: Readonly<AppState>, trackerId: string, dateKey: string): number {
-  return state.logs
-    .filter(log => (
-      log.recordType === 'unit'
-      && log.trackerId === trackerId
-      && localDateKey(log.occurredAt) === dateKey
-    ))
-    .reduce((total, log) => total + Number(log.value), 0);
-}
-
-function activityRowHtml(state: Readonly<AppState>, log: UnitTrackingLog): string {
-  const tracker = getTracker(state, log.trackerId);
-  if (!tracker) return '';
-  return `<div class="activity-row"><div class="activity-main"><div class="activity-icon" style="color:${tracker.color}">${escapeHtml(tracker.icon)}</div><div style="min-width:0"><p class="activity-name">${escapeHtml(tracker.name)}</p><p class="activity-meta">${formatDateTime(log.occurredAt)}${log.note ? ` · ${escapeHtml(log.note)}` : ''}</p></div></div><div style="display:flex;align-items:center;gap:8px"><div class="activity-value">+${formatValue(log.value)} <span>${escapeHtml(pluralUnit(tracker.unit, log.value))}</span></div></div></div>`;
-}
-
-function trackerCardHtml(
+function dailyMetric(
   state: Readonly<AppState>,
-  sortedLogs: readonly UnitTrackingLog[],
+  tracker: Tracker,
+  dateKey: string
+): number {
+  if (tracker.inputType === 'unit') {
+    return state.logs
+      .filter((log): log is UnitTrackingLog => (
+        log.recordType === 'unit'
+        && log.trackerId === tracker.id
+        && localDateKey(log.occurredAt) === dateKey
+      ))
+      .reduce((total, log) => total + log.value, 0);
+  }
+  return state.logs.filter(log => (
+    log.recordType === 'option'
+    && log.trackerId === tracker.id
+    && localDateKey(log.occurredAt) === dateKey
+    && optionForLog(state, log) !== undefined
+  )).length;
+}
+
+function activityRowHtml(state: Readonly<AppState>, log: TrackingLog): string {
+  const tracker = trackerForLog(state, log);
+  if (!tracker) return '';
+  const value = tracker.inputType === 'unit' && log.recordType === 'unit'
+    ? `+${formatValue(log.value)} <span>${escapeHtml(pluralUnit(tracker.unit, log.value))}</span>`
+    : log.recordType === 'option'
+      ? escapeHtml(optionForLog(state, log)?.label ?? '')
+      : '';
+  if (!value) return '';
+  return `<div class="activity-row"><div class="activity-main"><div class="activity-icon" style="color:${tracker.color}">${escapeHtml(tracker.icon)}</div><div style="min-width:0"><p class="activity-name">${escapeHtml(tracker.name)}</p><p class="activity-meta">${formatDateTime(log.occurredAt)}${log.note ? ` · ${escapeHtml(log.note)}` : ''}</p></div></div><div style="display:flex;align-items:center;gap:8px"><div class="activity-value">${value}</div></div></div>`;
+}
+
+function unitTrackerCardHtml(
+  state: Readonly<AppState>,
+  sortedLogs: readonly TrackingLog[],
   tracker: UnitTracker
 ): string {
-  const total = totalForDate(state, tracker.id, localDateKey());
-  const latest = sortedLogs.find(log => log.trackerId === tracker.id);
+  const total = dailyMetric(state, tracker, localDateKey());
+  const latest = sortedLogs.find((log): log is UnitTrackingLog => (
+    log.trackerId === tracker.id && log.recordType === 'unit'
+  ));
   const percent = tracker.goal
     ? Math.min(100, Math.round((total / tracker.goal) * 100))
     : Math.min(100, total * 8);
@@ -75,6 +118,38 @@ function trackerCardHtml(
   return `<article class="card tracker-card"><div class="tracker-top"><div class="tracker-heading"><div class="tracker-ident"><div class="tracker-icon" style="background:${tracker.color}1c;color:${tracker.color}">${escapeHtml(tracker.icon)}</div><div><h3>${escapeHtml(tracker.name)}</h3><p>${latest ? `Last ${timeAgo(latest.occurredAt)}` : 'No entry yet'}</p></div></div><button class="row-action" data-edit-from-card="${escapeHtml(tracker.id)}" title="Edit tracker" aria-label="Edit tracker"><i data-lucide="ellipsis"></i></button></div><div class="today-total"><div><span class="number">${formatValue(total)}</span> <span class="unit">${escapeHtml(pluralUnit(tracker.unit, total))}</span></div><div class="goal-copy">${goalText}</div></div><div class="progress-track"><div class="progress-fill" style="width:${percent}%;background:${tracker.color}"></div></div></div><div class="quick-actions">${quickActions}<button class="button custom-button" data-custom-log="${escapeHtml(tracker.id)}">Custom</button></div></article>`;
 }
 
+function optionTrackerCardHtml(
+  state: Readonly<AppState>,
+  sortedLogs: readonly TrackingLog[],
+  tracker: Extract<Tracker, { inputType: 'option' }>
+): string {
+  const total = dailyMetric(state, tracker, localDateKey());
+  const latest = sortedLogs.find((log): log is OptionTrackingLog => (
+    log.trackerId === tracker.id
+    && log.recordType === 'option'
+    && optionForLog(state, log) !== undefined
+  ));
+  const latestOption = latest ? optionForLog(state, latest) : undefined;
+  const quickActions = tracker.options.map(option => (
+    `<button class="button quick-button option-quick-button" style="background:${tracker.color}" data-quick-option="${escapeHtml(tracker.id)}" data-option-id="${escapeHtml(option.id)}">${escapeHtml(option.label)}</button>`
+  )).join('');
+  const latestCopy = latest && latestOption
+    ? `${escapeHtml(latestOption.label)} · ${timeAgo(latest.occurredAt)}`
+    : 'No entry yet';
+
+  return `<article class="card tracker-card"><div class="tracker-top"><div class="tracker-heading"><div class="tracker-ident"><div class="tracker-icon" style="background:${tracker.color}1c;color:${tracker.color}">${escapeHtml(tracker.icon)}</div><div><h3>${escapeHtml(tracker.name)}</h3><p>${latestCopy}</p></div></div><button class="row-action" data-edit-from-card="${escapeHtml(tracker.id)}" title="Edit tracker" aria-label="Edit tracker"><i data-lucide="ellipsis"></i></button></div><div class="today-total"><div><span class="number">${formatValue(total)}</span> <span class="unit">${total === 1 ? 'record today' : 'records today'}</span></div></div></div><div class="quick-actions">${quickActions}<button class="button custom-button" data-custom-log="${escapeHtml(tracker.id)}">Custom</button></div></article>`;
+}
+
+function trackerCardHtml(
+  state: Readonly<AppState>,
+  sortedLogs: readonly TrackingLog[],
+  tracker: Tracker
+): string {
+  return tracker.inputType === 'unit'
+    ? unitTrackerCardHtml(state, sortedLogs, tracker)
+    : optionTrackerCardHtml(state, sortedLogs, tracker);
+}
+
 export function createDashboardController(
   dependencies: DashboardDependencies
 ): DashboardController {
@@ -84,9 +159,7 @@ export function createDashboardController(
 
   const renderChart = (): void => {
     if (currentState === null) return;
-    const activeTrackers = currentState.trackers.filter((tracker): tracker is UnitTracker => (
-      tracker.inputType === 'unit' && tracker.active
-    ));
+    const activeTrackers = currentState.trackers.filter(tracker => tracker.active);
     const trackerId = chartTracker.value || activeTrackers[0]?.id;
     const tracker = trackerId === undefined
       ? undefined
@@ -102,7 +175,7 @@ export function createDashboardController(
       date.setDate(date.getDate() - (6 - index));
       return {
         date,
-        total: totalForDate(currentState as Readonly<AppState>, tracker.id, localDateKey(date))
+        total: dailyMetric(currentState as Readonly<AppState>, tracker, localDateKey(date))
       };
     });
     const maximum = Math.max(...days.map(day => day.total), 1);
@@ -112,7 +185,10 @@ export function createDashboardController(
         Math.round((day.total / maximum) * 100)
       );
       const dayLabel = new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(day.date);
-      return `<div class="chart-column"><div class="bar-area"><div class="bar" style="height:${height}%;background:${tracker.color}" data-label="${formatValue(day.total)} ${escapeHtml(pluralUnit(tracker.unit, day.total))}"></div></div><div class="bar-label">${dayLabel}</div></div>`;
+      const metricLabel = tracker.inputType === 'unit'
+        ? `${formatValue(day.total)} ${escapeHtml(pluralUnit(tracker.unit, day.total))}`
+        : `${formatValue(day.total)} ${day.total === 1 ? 'record' : 'records'}`;
+      return `<div class="chart-column"><div class="bar-area"><div class="bar" style="height:${height}%;background:${tracker.color}" data-label="${metricLabel}"></div></div><div class="bar-label">${dayLabel}</div></div>`;
     }).join('');
   };
 
@@ -124,6 +200,15 @@ export function createDashboardController(
       if (Number.isFinite(value)) {
         void dependencies.addQuickLog(quickLog.dataset.quickLog, value);
       }
+      return;
+    }
+
+    const quickOption = event.target.closest<HTMLElement>('[data-quick-option]');
+    if (quickOption?.dataset.quickOption && quickOption.dataset.optionId) {
+      void dependencies.addQuickOptionLog(
+        quickOption.dataset.quickOption,
+        quickOption.dataset.optionId
+      );
       return;
     }
 
@@ -146,18 +231,18 @@ export function createDashboardController(
     render(state) {
       currentState = state;
       const today = localDateKey();
-      const todaysLogs = state.logs.filter((log): log is UnitTrackingLog => (
-        log.recordType === 'unit' && localDateKey(log.occurredAt) === today
+      const todaysLogs = state.logs.filter(log => (
+        localDateKey(log.occurredAt) === today && trackerForLog(state, log) !== undefined
       ));
       const sortedLogs = newestLogs(state);
       const newest = sortedLogs[0];
-      const activeTrackers = state.trackers.filter((tracker): tracker is UnitTracker => (
-        tracker.inputType === 'unit' && tracker.active
-      ));
+      const activeTrackers = state.trackers.filter(tracker => tracker.active);
 
       getElement('#statTodayEntries').textContent = String(todaysLogs.length);
       getElement('#statTodayCaption').textContent = todaysLogs.length
-        ? `${formatValue(todaysLogs.reduce((total, log) => total + Number(log.value), 0))} total value logged`
+        ? todaysLogs.every((log): log is UnitTrackingLog => log.recordType === 'unit')
+          ? `${formatValue(todaysLogs.reduce((total, log) => total + log.value, 0))} total value logged`
+          : `${todaysLogs.length} ${todaysLogs.length === 1 ? 'record' : 'records'} logged today`
         : 'Nothing logged yet';
       getElement('#statActiveTrackers').textContent = String(activeTrackers.length);
       getElement('#statLastActivity').textContent = newest

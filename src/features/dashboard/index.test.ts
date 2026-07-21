@@ -2,7 +2,13 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import type { AppState, UnitTracker, UnitTrackingLog } from '../../domain/models';
+import type {
+  AppState,
+  OptionTracker,
+  OptionTrackingLog,
+  UnitTracker,
+  UnitTrackingLog
+} from '../../domain/models';
 import { createDashboardController, type DashboardDependencies } from './index';
 
 const NOW = new Date(2026, 6, 21, 12, 0, 0);
@@ -47,6 +53,47 @@ function log(
   };
 }
 
+function optionTracker(): OptionTracker {
+  return {
+    id: 'sleep-tracker',
+    name: 'Sleep',
+    icon: '☾',
+    color: '#7c3aed',
+    inputType: 'option',
+    unit: null,
+    goal: null,
+    presets: [],
+    options: [
+      { id: 'sleep-id', label: 'Sleep', sortOrder: 0, createdAt: NOW.toISOString() },
+      { id: 'wake-id', label: 'Wake', sortOrder: 1, createdAt: NOW.toISOString() }
+    ],
+    active: true,
+    sortOrder: 1,
+    createdAt: NOW.toISOString()
+  };
+}
+
+function optionLog(
+  id: string,
+  dayOffset: number,
+  optionId: string,
+  hour: number
+): OptionTrackingLog {
+  const occurredAt = new Date(NOW);
+  occurredAt.setDate(occurredAt.getDate() + dayOffset);
+  occurredAt.setHours(hour, 0, 0, 0);
+  return {
+    id,
+    trackerId: 'sleep-tracker',
+    value: null,
+    recordType: 'option',
+    optionId,
+    occurredAt: occurredAt.toISOString(),
+    note: '',
+    source: 'website'
+  };
+}
+
 function state(overrides: Partial<AppState> = {}): AppState {
   return {
     version: 4,
@@ -74,6 +121,7 @@ function installDom(): void {
 function dependencies(): DashboardDependencies {
   return {
     addQuickLog: vi.fn().mockResolvedValue(undefined),
+    addQuickOptionLog: vi.fn().mockResolvedValue(undefined),
     openCustomLog: vi.fn(),
     openTrackerEditor: vi.fn()
   };
@@ -128,6 +176,34 @@ describe('DashboardController', () => {
     controller.destroy();
     document.querySelector<HTMLButtonElement>('[data-quick-log]')?.click();
     expect(callbacks.addQuickLog).toHaveBeenCalledOnce();
+  });
+
+  test('renders option trackers with count metrics and delegates option quick actions', () => {
+    const callbacks = dependencies();
+    const controller = createDashboardController(callbacks);
+    controller.render(state({
+      trackers: [optionTracker()],
+      logs: [
+        optionLog('sleep-today', 0, 'sleep-id', 8),
+        optionLog('wake-today', 0, 'wake-id', 11),
+        optionLog('wake-old', -6, 'wake-id', 9)
+      ]
+    }));
+
+    const grid = document.querySelector<HTMLElement>('#dashboardTrackerGrid');
+    if (!grid) throw new Error('Missing tracker grid.');
+    expect(grid.innerHTML).toContain('data-quick-option="sleep-tracker"');
+    expect(grid.innerHTML).toContain('data-option-id="wake-id"');
+    expect(grid.textContent).toContain('2 records today');
+    expect(grid.textContent).toContain('Wake');
+    expect(grid.innerHTML).not.toContain('progress-fill');
+    expect(document.querySelector('#dashboardActivity')?.textContent).toContain('Wake');
+    const bars = [...document.querySelectorAll<HTMLElement>('#dashboardChart .bar')];
+    expect(bars[0]?.dataset.label).toBe('1 record');
+    expect(bars[6]?.dataset.label).toBe('2 records');
+
+    document.querySelector<HTMLButtonElement>('[data-option-id="wake-id"]')?.click();
+    expect(callbacks.addQuickOptionLog).toHaveBeenCalledWith('sleep-tracker', 'wake-id');
   });
 
   test('renders the existing empty states without an active tracker or record', () => {
