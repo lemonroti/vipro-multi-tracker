@@ -32,8 +32,9 @@ Future<void> trackerWidgetBackgroundCallback(Uri? uri) async {
     return;
   }
 
-  final trackerId =
-      await HomeWidget.getWidgetData<String>('trackerId.$widgetId');
+  final trackerId = await HomeWidget.getWidgetData<String>(
+    'trackerId.$widgetId',
+  );
   final rawValue = await HomeWidget.getWidgetData<String>('value.$widgetId');
   final unit = await HomeWidget.getWidgetData<String>('unit.$widgetId') ?? '';
   final value = double.tryParse(rawValue ?? '');
@@ -44,12 +45,14 @@ Future<void> trackerWidgetBackgroundCallback(Uri? uri) async {
 
   final database = AppDatabase();
   try {
-    final tracker = await (database.select(database.localTrackers)
-          ..where((row) =>
-              row.userId.equals(session.user.id) &
-              row.id.equals(trackerId) &
-              row.deletedAt.isNull()))
-        .getSingleOrNull();
+    final tracker =
+        await (database.select(database.localTrackers)..where(
+              (row) =>
+                  row.userId.equals(session.user.id) &
+                  row.id.equals(trackerId) &
+                  row.deletedAt.isNull(),
+            ))
+            .getSingleOrNull();
     if (tracker == null) {
       await _saveStatus(widgetId, 'Tracker unavailable');
       return;
@@ -83,10 +86,7 @@ Future<void> _saveStatus(int widgetId, String status) async {
 }
 
 class TrackerWidgetConfigurationScreen extends StatefulWidget {
-  const TrackerWidgetConfigurationScreen({
-    super.key,
-    required this.widgetId,
-  });
+  const TrackerWidgetConfigurationScreen({super.key, required this.widgetId});
 
   final String widgetId;
 
@@ -195,93 +195,92 @@ class _TrackerWidgetConfigurationScreenState
         body: loading
             ? const Center(child: CircularProgressIndicator())
             : error != null && store == null
-                ? _ConfigurationError(message: error!)
-                : StreamBuilder<List<LocalTracker>>(
-                    stream: store!.trackers,
-                    initialData: const [],
-                    builder: (context, snapshot) {
-                      final trackers = (snapshot.data ?? const [])
-                          .where((tracker) => tracker.active)
-                          .toList();
-                      if (trackers.isEmpty) {
-                        return const _ConfigurationError(
-                          message:
-                              'Create at least one active tracker in the app first.',
-                        );
-                      }
-                      selectedTrackerId ??= trackers.first.id;
-                      final selected = trackers.firstWhere(
-                        (tracker) => tracker.id == selectedTrackerId,
-                        orElse: () => trackers.first,
-                      );
-                      if (valueController.text.isEmpty) {
-                        final presets =
-                            (jsonDecode(selected.presetsJson) as List)
-                                .map((item) => (item as num).toDouble())
-                                .toList();
-                        valueController.text =
-                            _number(presets.isEmpty ? 1 : presets.first);
-                      }
-                      return ListView(
-                        padding: const EdgeInsets.all(20),
-                        children: [
-                          DropdownButtonFormField<String>(
-                            initialValue: selectedTrackerId,
-                            decoration:
-                                const InputDecoration(labelText: 'Tracker'),
-                            items: [
-                              for (final tracker in trackers)
-                                DropdownMenuItem(
-                                  value: tracker.id,
-                                  child: Text('${tracker.icon} ${tracker.name}'),
-                                ),
-                            ],
-                            onChanged: (value) {
-                              if (value == null) {
-                                return;
-                              }
-                              setState(() {
-                                selectedTrackerId = value;
-                                valueController.clear();
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 14),
-                          TextField(
-                            controller: valueController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
+            ? _ConfigurationError(message: error!)
+            : StreamBuilder<List<LocalTracker>>(
+                stream: store!.trackers,
+                initialData: const [],
+                builder: (context, snapshot) {
+                  final trackers = (snapshot.data ?? const [])
+                      .where((tracker) => tracker.active)
+                      .toList();
+                  if (trackers.isEmpty) {
+                    return const _ConfigurationError(
+                      message:
+                          'Create at least one active tracker in the app first.',
+                    );
+                  }
+                  selectedTrackerId ??= trackers.first.id;
+                  final selected = trackers.firstWhere(
+                    (tracker) => tracker.id == selectedTrackerId,
+                    orElse: () => trackers.first,
+                  );
+                  if (valueController.text.isEmpty) {
+                    final presets = (jsonDecode(selected.presetsJson) as List)
+                        .map((item) => (item as num).toDouble())
+                        .toList();
+                    valueController.text = _number(
+                      presets.isEmpty ? 1 : presets.first,
+                    );
+                  }
+                  return ListView(
+                    padding: const EdgeInsets.all(20),
+                    children: [
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedTrackerId,
+                        decoration: const InputDecoration(labelText: 'Tracker'),
+                        items: [
+                          for (final tracker in trackers)
+                            DropdownMenuItem(
+                              value: tracker.id,
+                              child: Text('${tracker.icon} ${tracker.name}'),
                             ),
-                            decoration: InputDecoration(
-                              labelText: 'Quick value (${selected.unit})',
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          TextField(
-                            controller: titleController,
-                            decoration: const InputDecoration(
-                              labelText: 'Widget title (optional)',
-                            ),
-                          ),
-                          if (error != null) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              error!,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 22),
-                          FilledButton.icon(
-                            onPressed: saving ? null : () => _save(selected),
-                            icon: const Icon(Icons.widgets_outlined),
-                            label: Text(saving ? 'Saving…' : 'Add widget'),
-                          ),
                         ],
-                      );
-                    },
-                  ),
+                        onChanged: (value) {
+                          if (value == null) {
+                            return;
+                          }
+                          setState(() {
+                            selectedTrackerId = value;
+                            valueController.clear();
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: valueController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'Quick value (${selected.unit})',
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: titleController,
+                        decoration: const InputDecoration(
+                          labelText: 'Widget title (optional)',
+                        ),
+                      ),
+                      if (error != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 22),
+                      FilledButton.icon(
+                        onPressed: saving ? null : () => _save(selected),
+                        icon: const Icon(Icons.widgets_outlined),
+                        label: Text(saving ? 'Saving…' : 'Add widget'),
+                      ),
+                    ],
+                  );
+                },
+              ),
       ),
     );
   }
@@ -294,11 +293,11 @@ class _ConfigurationError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Text(message, textAlign: TextAlign.center),
-        ),
-      );
+    child: Padding(
+      padding: const EdgeInsets.all(28),
+      child: Text(message, textAlign: TextAlign.center),
+    ),
+  );
 }
 
 String _number(double value) => value == value.roundToDouble()

@@ -26,8 +26,7 @@ Future<void> main() async {
 Future<void> configureMain() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _initializeSupabase();
-  final widgetId =
-      await HomeWidget.initiallyLaunchedFromHomeWidgetConfigure();
+  final widgetId = await HomeWidget.initiallyLaunchedFromHomeWidgetConfigure();
   if (widgetId == null) {
     await registerTrackerWidgetCallback();
     runApp(TrackerApp(database: AppDatabase()));
