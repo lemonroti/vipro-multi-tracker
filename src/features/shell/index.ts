@@ -94,6 +94,8 @@ export function createShellController(): ShellController {
     getElement('#pageTitle').textContent = metadata.title;
     const action = getElement<HTMLButtonElement>('#headerAction');
     getElement('#headerActionLabel').textContent = metadata.action;
+    if (metadata.action) action.setAttribute('aria-label', `+ ${metadata.action}`);
+    else action.removeAttribute('aria-label');
     action.hidden = metadata.action === '';
     action.dataset.actionType = metadata.actionType;
     updateGreeting();
