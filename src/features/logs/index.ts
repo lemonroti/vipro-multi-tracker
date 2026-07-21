@@ -120,6 +120,7 @@ export function createLogController(
       return;
     }
     const input = {
+      recordType: 'unit' as const,
       trackerId: trackerSelect.value,
       value,
       occurredAt: occurredAt.toISOString(),
@@ -156,6 +157,7 @@ export function createLogController(
     if (!tracker || !Number.isFinite(value) || value <= 0) return;
     const existingIds = new Set(dependencies.store.getState().logs.map(log => log.id));
     const result = await dependencies.service.add({
+      recordType: 'unit',
       trackerId,
       value,
       occurredAt: new Date().toISOString(),
@@ -185,6 +187,7 @@ export function createLogController(
     if (successful(result, dependencies.shell, 'Record deleted', true)) {
       hasUndo = true;
       undoAction = () => dependencies.service.add({
+        recordType: 'unit',
         trackerId: log.trackerId,
         value: log.value,
         occurredAt: log.occurredAt,

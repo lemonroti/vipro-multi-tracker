@@ -32,12 +32,23 @@ export type TrackerInput =
       optionLabels: string[];
     });
 
-export interface LogInput {
+export interface UnitLogInput {
+  recordType: 'unit';
   trackerId: string;
   value: number;
   occurredAt: string;
   note: string;
 }
+
+export interface OptionLogInput {
+  recordType: 'option';
+  trackerId: string;
+  optionId: string;
+  occurredAt: string;
+  note: string;
+}
+
+export type LogInput = UnitLogInput | OptionLogInput;
 
 export type OperationExecutor = (operation: OfflineOperation) => Promise<void>;
 

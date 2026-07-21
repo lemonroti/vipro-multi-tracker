@@ -1,4 +1,4 @@
-import type { TrackingLog } from '../domain/models';
+import type { Tracker, TrackingLog } from '../domain/models';
 import type { OfflineOperation } from '../domain/operations';
 import { trackingLogSchema } from '../domain/schemas';
 import type { AppStore } from '../state/app-store';
@@ -20,6 +20,35 @@ function validationError(): OperationResult {
   };
 }
 
+function inputMatchesTracker(input: LogInput, tracker: Tracker | undefined): boolean {
+  if (input.recordType === 'unit') return tracker?.inputType === 'unit';
+
+  return tracker?.inputType === 'option'
+    && tracker.options.some(option => option.id === input.optionId);
+}
+
+function parseLog(
+  id: string,
+  input: LogInput,
+  source: string
+): TrackingLog | null {
+  const parsed = trackingLogSchema.safeParse(input.recordType === 'unit'
+    ? {
+        id,
+        ...input,
+        optionId: null,
+        source
+      }
+    : {
+        id,
+        ...input,
+        value: null,
+        source
+      });
+
+  return parsed.success ? parsed.data : null;
+}
+
 class LogServiceImplementation implements LogService {
   constructor(
     private readonly userId: string,
@@ -35,20 +64,12 @@ class LogServiceImplementation implements LogService {
   async add(input: LogInput): Promise<OperationResult> {
     const before = this.store.getState();
     const tracker = before.trackers.find(candidate => candidate.id === input.trackerId);
-    if (tracker?.inputType !== 'unit') {
-      return validationError();
-    }
+    if (!inputMatchesTracker(input, tracker)) return validationError();
 
-    const parsed = trackingLogSchema.safeParse({
-      id: this.createId(),
-      ...input,
-      recordType: 'unit',
-      optionId: null,
-      source: 'website'
-    });
-    if (!parsed.success) return validationError();
+    const log = parseLog(this.createId(), input, 'website');
+    if (log === null) return validationError();
 
-    return this.persistUpsert(before, parsed.data, true);
+    return this.persistUpsert(before, log, true);
   }
 
   async update(id: string, input: LogInput): Promise<OperationResult> {
@@ -56,22 +77,16 @@ class LogServiceImplementation implements LogService {
     const existing = before.logs.find(log => log.id === id);
     const tracker = before.trackers.find(candidate => candidate.id === input.trackerId);
     if (
-      existing?.recordType !== 'unit'
-      || tracker?.inputType !== 'unit'
+      existing?.recordType !== input.recordType
+      || !inputMatchesTracker(input, tracker)
     ) {
       return validationError();
     }
 
-    const parsed = trackingLogSchema.safeParse({
-      id,
-      ...input,
-      recordType: 'unit',
-      optionId: null,
-      source: existing.source
-    });
-    if (!parsed.success) return validationError();
+    const log = parseLog(id, input, existing.source);
+    if (log === null) return validationError();
 
-    return this.persistUpsert(before, parsed.data, false);
+    return this.persistUpsert(before, log, false);
   }
 
   async delete(id: string): Promise<OperationResult> {

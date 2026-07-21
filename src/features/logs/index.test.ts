@@ -126,6 +126,7 @@ describe('LogController', () => {
     await settle();
 
     expect(deps.service.update).toHaveBeenCalledWith('log-1', {
+      recordType: 'unit',
       trackerId: 'water',
       value: 4.5,
       occurredAt: new Date(2026, 6, 22, 9, 15).toISOString(),
@@ -151,7 +152,9 @@ describe('LogController', () => {
     await settle();
 
     const added = deps.service.add.mock.calls[0]?.[0];
-    expect(added).toMatchObject({ trackerId: 'water', value: 2, note: '' });
+    expect(added).toMatchObject({
+      recordType: 'unit', trackerId: 'water', value: 2, note: ''
+    });
     expect(Number.isNaN(Date.parse(added?.occurredAt ?? ''))).toBe(false);
     expect(deps.shell.showToast).toHaveBeenCalledWith('Water: +2 recorded', true);
   });
@@ -175,6 +178,7 @@ describe('LogController', () => {
     document.querySelector<HTMLButtonElement>('#toastUndo')?.click();
     await settle();
     expect(deps.service.add).toHaveBeenCalledWith({
+      recordType: 'unit',
       trackerId: 'water',
       value: 3,
       occurredAt: LOG.occurredAt,
@@ -191,7 +195,9 @@ describe('LogController', () => {
 
     await controller.addQuickLog('water', 2);
     const added = deps.service.add.mock.calls[0]?.[0];
-    expect(added).toMatchObject({ trackerId: 'water', value: 2, note: '' });
+    expect(added).toMatchObject({
+      recordType: 'unit', trackerId: 'water', value: 2, note: ''
+    });
     expect(Number.isNaN(Date.parse(added?.occurredAt ?? ''))).toBe(false);
     expect(deps.shell.showToast).toHaveBeenCalledWith('Water: +2 recorded', true);
 
