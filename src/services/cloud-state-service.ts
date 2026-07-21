@@ -96,14 +96,14 @@ class CloudStateServiceImplementation implements CloudStateService {
         this.settingsRepository.save(defaultSettings)
       ]);
       cloudState = normalizeState({
-        version: 3,
+        version: 4,
         trackers: defaultTrackers,
         logs,
         settings: defaultSettings
       });
     } else {
       cloudState = normalizeState({
-        version: 3,
+        version: 4,
         trackers,
         logs,
         settings: settings ?? blankState().settings
@@ -124,7 +124,7 @@ class CloudStateServiceImplementation implements CloudStateService {
       this.settingsRepository.get()
     ]);
     const cloudState = normalizeState({
-      version: 3,
+      version: 4,
       trackers,
       logs,
       settings: settings ?? blankState().settings

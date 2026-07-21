@@ -16,7 +16,7 @@ const PERSISTENCE_ERROR_MESSAGE = 'Could not safely replace cloud data.';
 const CSV_HEADERS = ['ID', 'Tracker', 'Value', 'Unit', 'Occurred At', 'Note'] as const;
 
 const backupSchema = z.object({
-  version: z.literal(3),
+  version: z.literal(4),
   trackers: z.array(trackerSchema),
   logs: z.array(trackingLogSchema),
   settings: userSettingsSchema,
@@ -134,7 +134,7 @@ export class BackupService implements BackupServiceContract {
         return [
           item.id,
           owner?.name ?? '',
-          item.value,
+          item.value ?? '',
           owner?.unit ?? '',
           item.occurredAt,
           item.note
@@ -155,7 +155,7 @@ export class BackupService implements BackupServiceContract {
     const result = backupSchema.safeParse(parsed);
     if (!result.success) return validationFailure();
     const imported: AppState = {
-      version: 3,
+      version: 4,
       trackers: result.data.trackers,
       logs: result.data.logs,
       settings: result.data.settings
@@ -181,7 +181,7 @@ export class BackupService implements BackupServiceContract {
       source: 'import'
     }));
     const replacement: AppState = {
-      version: 3,
+      version: 4,
       trackers,
       logs,
       settings: imported.settings
@@ -202,7 +202,7 @@ export class BackupService implements BackupServiceContract {
         );
     const samples = this.makeSampleLogs(trackers);
     const next: AppState = {
-      version: 3,
+      version: 4,
       trackers,
       logs: [...current.logs, ...samples],
       settings: current.settings
@@ -236,7 +236,7 @@ export class BackupService implements BackupServiceContract {
 
   async resetEverything(): Promise<OperationResult> {
     const replacement: AppState = {
-      version: 3,
+      version: 4,
       trackers: makeDefaultTrackers(
         () => this.dependencies.createId(),
         () => this.dependencies.now()
@@ -294,6 +294,8 @@ export class BackupService implements BackupServiceContract {
           id: this.dependencies.createId(),
           trackerId: first.id,
           value: 1,
+          recordType: 'unit',
+          optionId: null,
           occurredAt: occurredAt.toISOString(),
           note: index === 0 && dayOffset === 0 ? 'Morning' : '',
           source: 'sample'
@@ -305,6 +307,8 @@ export class BackupService implements BackupServiceContract {
         id: this.dependencies.createId(),
         trackerId: second.id,
         value: secondValues[valueIndex] ?? 1,
+        recordType: 'unit',
+        optionId: null,
         occurredAt: occurredAt.toISOString(),
         note: '',
         source: 'sample'

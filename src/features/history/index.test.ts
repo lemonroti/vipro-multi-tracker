@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import type { AppState, Tracker, TrackingLog } from '../../domain/models';
+import type { AppState, UnitTracker, UnitTrackingLog } from '../../domain/models';
 import {
   createHistoryController,
   filterHistoryLogs,
@@ -12,7 +12,7 @@ import {
 const JULY_21 = new Date(2026, 6, 21, 12, 0, 0);
 const JULY_20 = new Date(2026, 6, 20, 12, 0, 0);
 
-function tracker(id: string, name: string): Tracker {
+function tracker(id: string, name: string): UnitTracker {
   return {
     id,
     name,
@@ -21,6 +21,8 @@ function tracker(id: string, name: string): Tracker {
     color: '#334155',
     goal: null,
     presets: [1],
+    inputType: 'unit',
+    options: [],
     active: true,
     sortOrder: 0,
     createdAt: JULY_20.toISOString()
@@ -33,11 +35,13 @@ function log(
   occurredAt: Date,
   note: string,
   value = 1
-): TrackingLog {
+): UnitTrackingLog {
   return {
     id,
     trackerId,
     value,
+    recordType: 'unit',
+    optionId: null,
     occurredAt: occurredAt.toISOString(),
     note,
     source: 'website'
@@ -46,7 +50,7 @@ function log(
 
 function state(): AppState {
   return {
-    version: 3,
+    version: 4,
     trackers: [tracker('alpha', 'Alpha <script>'), tracker('beta', 'Beta')],
     logs: [
       log('today-alpha', 'alpha', JULY_21, '<img onerror=alert(1)> hello', 2),

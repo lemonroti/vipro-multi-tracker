@@ -12,6 +12,8 @@ function makeTracker(): Tracker {
     color: '#2563eb',
     goal: 2000,
     presets: [250],
+    inputType: 'unit',
+    options: [],
     active: true,
     sortOrder: 0,
     createdAt: '2026-07-21T00:00:00.000Z'

@@ -49,6 +49,8 @@ function trackerUpsert(
       color: '#334155',
       goal: null,
       presets: [1],
+      inputType: 'unit',
+      options: [],
       active: true,
       sortOrder: 0,
       createdAt
@@ -66,6 +68,8 @@ function logUpsert(operationId: string, entityId: string, createdAt: string): Of
       id: entityId,
       trackerId: 'tracker-1',
       value: 1,
+      recordType: 'unit',
+      optionId: null,
       occurredAt: createdAt,
       note: '',
       source: 'website'

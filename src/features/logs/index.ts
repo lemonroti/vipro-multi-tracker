@@ -169,7 +169,7 @@ export function createLogController(
   const deleteLog = async (logId: string): Promise<void> => {
     const state = dependencies.store.getState();
     const log = state.logs.find(candidate => candidate.id === logId);
-    if (!log) return;
+    if (!log || log.recordType !== 'unit') return;
     if (state.settings.confirmDelete && !confirm('Delete this record?')) return;
     const result = await dependencies.service.delete(logId);
     if (successful(result, dependencies.shell, 'Record deleted', true)) {

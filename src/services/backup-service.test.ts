@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest';
-import type { AppState, Tracker, TrackingLog } from '../domain/models';
+import type {
+  AppState,
+  Tracker,
+  TrackingLog,
+  UnitTracker,
+  UnitTrackingLog
+} from '../domain/models';
 import { blankState } from '../domain/schemas';
 import { createAppStore } from '../state/app-store';
 import { BackupService } from './backup-service';
@@ -16,18 +22,19 @@ class MemoryStorage implements Storage {
   setItem(key: string, value: string): void { this.values.set(key, value); }
 }
 
-function tracker(overrides: Partial<Tracker> = {}): Tracker {
+function tracker(overrides: Partial<UnitTracker> = {}): UnitTracker {
   return {
     id: 'tracker-a', name: 'Water', unit: 'glass', icon: '💧', color: '#2563eb',
-    goal: 8, presets: [1], active: true, sortOrder: 0, createdAt: NOW,
+    goal: 8, presets: [1], inputType: 'unit', options: [],
+    active: true, sortOrder: 0, createdAt: NOW,
     ...overrides
   };
 }
 
-function log(overrides: Partial<TrackingLog> = {}): TrackingLog {
+function log(overrides: Partial<UnitTrackingLog> = {}): UnitTrackingLog {
   return {
     id: 'log-a', trackerId: 'tracker-a', value: 1, occurredAt: NOW,
-    note: '', source: 'website', ...overrides
+    note: '', source: 'website', recordType: 'unit', optionId: null, ...overrides
   };
 }
 
@@ -122,7 +129,7 @@ describe('BackupService exports', () => {
     const { service } = createHarness();
 
     expect(service.exportJson()).toBe(JSON.stringify({
-      version: 3,
+      version: 4,
       trackers: [tracker()],
       logs: [log()],
       settings: { theme: 'system', confirmDelete: true },
@@ -182,7 +189,7 @@ describe('BackupService import', () => {
 
     expect(result).toEqual({ ok: true, queued: false });
     expect(restoreCalls).toEqual([{
-      version: 3,
+      version: 4,
       trackers: [tracker({ id: 'tracker-new', createdAt: NOW })],
       logs: [log({ id: 'log-new', trackerId: 'tracker-new', source: 'import' })],
       settings: { theme: 'system', confirmDelete: true }
@@ -296,7 +303,7 @@ describe('BackupService destructive helpers', () => {
       }
     ]);
     expect(store.getState()).toEqual({
-      version: 3,
+      version: 4,
       trackers: restoreCalls[0]?.trackers ?? [],
       logs: [],
       settings: { theme: 'system', confirmDelete: true }

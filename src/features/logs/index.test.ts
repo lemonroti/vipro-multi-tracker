@@ -8,17 +8,19 @@ import { createLogController, type LogControllerDependencies } from './index';
 const TRACKER: Tracker = {
   id: 'water', name: 'Water', unit: 'glass', icon: '💧', color: '#2563eb',
   goal: 8, presets: [2, 5], active: true, sortOrder: 0,
+  inputType: 'unit', options: [],
   createdAt: '2026-07-20T00:00:00.000Z'
 };
 const LOG: TrackingLog = {
   id: 'log-1', trackerId: 'water', value: 3,
+  recordType: 'unit', optionId: null,
   occurredAt: new Date(2026, 6, 21, 14, 30).toISOString(),
   note: ' Afternoon ', source: 'website'
 };
 
 function state(overrides: Partial<AppState> = {}): AppState {
   return {
-    version: 3,
+    version: 4,
     trackers: [TRACKER],
     logs: [LOG],
     settings: { theme: 'system', confirmDelete: true },

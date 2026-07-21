@@ -29,7 +29,7 @@ function todayAt(hour: number): string {
 
 function populatedState(): AppState {
   return {
-    version: 3,
+    version: 4,
     trackers: [
       {
         id: 'tracker-water',
@@ -39,6 +39,8 @@ function populatedState(): AppState {
         color: '#2563eb',
         goal: 8,
         presets: [1, 2],
+        inputType: 'unit',
+        options: [],
         active: true,
         sortOrder: 0,
         createdAt: todayAt(8)
@@ -51,6 +53,8 @@ function populatedState(): AppState {
         color: '#6d4aff',
         goal: 30,
         presets: [10, 20],
+        inputType: 'unit',
+        options: [],
         active: true,
         sortOrder: 1,
         createdAt: todayAt(8)
@@ -61,6 +65,8 @@ function populatedState(): AppState {
         id: 'log-water-morning',
         trackerId: 'tracker-water',
         value: 1,
+        recordType: 'unit',
+        optionId: null,
         occurredAt: todayAt(9),
         note: 'Morning glass',
         source: 'fixture'
@@ -69,6 +75,8 @@ function populatedState(): AppState {
         id: 'log-reading-evening',
         trackerId: 'tracker-reading',
         value: 20,
+        recordType: 'unit',
+        optionId: null,
         occurredAt: todayAt(20),
         note: 'Evening chapter',
         source: 'fixture'
@@ -218,7 +226,7 @@ export function createBrowserFixture(
   storage: Storage
 ): ApplicationRuntime {
   const initialState = scenario === 'signed-in-empty'
-    ? { version: 3 as const, trackers: [], logs: [], settings: { theme: 'system' as const, confirmDelete: true } }
+    ? { version: 4 as const, trackers: [], logs: [], settings: { theme: 'system' as const, confirmDelete: true } }
     : populatedState();
   const repositories = new FixtureRepositories(
     initialState,
@@ -231,6 +239,8 @@ export function createBrowserFixture(
       id: 'pending-log',
       trackerId: 'tracker-water',
       value: 2,
+      recordType: 'unit',
+      optionId: null,
       occurredAt: todayAt(12),
       note: 'Queued while offline',
       source: 'website'

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import type { AppState, Tracker } from '../../domain/models';
+import type { AppState, UnitTracker } from '../../domain/models';
 import type { OperationResult, TrackerInput } from '../../services/sync-service';
 import {
   createTrackerController,
@@ -9,7 +9,7 @@ import {
   type TrackerControllerDependencies
 } from './index';
 
-function tracker(overrides: Partial<Tracker> = {}): Tracker {
+function tracker(overrides: Partial<UnitTracker> = {}): UnitTracker {
   return {
     id: 'water',
     name: 'Water',
@@ -18,6 +18,8 @@ function tracker(overrides: Partial<Tracker> = {}): Tracker {
     color: '#2563eb',
     goal: 8,
     presets: [1, 2],
+    inputType: 'unit',
+    options: [],
     active: false,
     sortOrder: 3,
     createdAt: '2026-07-20T00:00:00.000Z',
@@ -27,11 +29,12 @@ function tracker(overrides: Partial<Tracker> = {}): Tracker {
 
 function state(overrides: Partial<AppState> = {}): AppState {
   return {
-    version: 3,
+    version: 4,
     trackers: [tracker()],
     logs: [{
       id: 'log-1', trackerId: 'water', value: 1,
-      occurredAt: '2026-07-21T00:00:00.000Z', note: '', source: 'website'
+      occurredAt: '2026-07-21T00:00:00.000Z', note: '', source: 'website',
+      recordType: 'unit', optionId: null
     }],
     settings: { theme: 'system', confirmDelete: true },
     ...overrides

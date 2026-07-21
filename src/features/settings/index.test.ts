@@ -9,7 +9,7 @@ import { createSettingsController, type SettingsControllerDependencies } from '.
 
 function state(overrides: Partial<AppState> = {}): AppState {
   return {
-    version: 3,
+    version: 4,
     trackers: [],
     logs: [],
     settings: { theme: 'system', confirmDelete: true },
@@ -81,11 +81,12 @@ describe('SettingsController', () => {
     const snapshot = state({
       trackers: [{
         id: 'water', name: 'Water', unit: 'glass', icon: '💧', color: '#2563eb',
-        goal: 8, presets: [1], active: true, sortOrder: 0, createdAt: '2026-07-20T00:00:00Z'
+        goal: 8, presets: [1], inputType: 'unit', options: [],
+        active: true, sortOrder: 0, createdAt: '2026-07-20T00:00:00Z'
       }],
       logs: [{
         id: 'one', trackerId: 'water', value: 1, occurredAt: '2026-07-21T00:00:00Z',
-        note: '', source: 'website'
+        note: '', source: 'website', recordType: 'unit', optionId: null
       }],
       settings: { theme: 'dark', confirmDelete: false }
     });

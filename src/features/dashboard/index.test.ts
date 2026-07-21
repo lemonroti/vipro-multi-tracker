@@ -2,12 +2,12 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import type { AppState, Tracker, TrackingLog } from '../../domain/models';
+import type { AppState, UnitTracker, UnitTrackingLog } from '../../domain/models';
 import { createDashboardController, type DashboardDependencies } from './index';
 
 const NOW = new Date(2026, 6, 21, 12, 0, 0);
 
-function tracker(overrides: Partial<Tracker> = {}): Tracker {
+function tracker(overrides: Partial<UnitTracker> = {}): UnitTracker {
   return {
     id: 'water',
     name: 'Water',
@@ -16,6 +16,8 @@ function tracker(overrides: Partial<Tracker> = {}): Tracker {
     color: '#2563eb',
     goal: 10,
     presets: [2, 5],
+    inputType: 'unit',
+    options: [],
     active: true,
     sortOrder: 0,
     createdAt: NOW.toISOString(),
@@ -27,8 +29,8 @@ function log(
   id: string,
   dayOffset: number,
   value: number,
-  overrides: Partial<TrackingLog> = {}
-): TrackingLog {
+  overrides: Partial<UnitTrackingLog> = {}
+): UnitTrackingLog {
   const occurredAt = new Date(NOW);
   occurredAt.setDate(occurredAt.getDate() + dayOffset);
   occurredAt.setHours(11, 0, 0, 0);
@@ -36,6 +38,8 @@ function log(
     id,
     trackerId: 'water',
     value,
+    recordType: 'unit',
+    optionId: null,
     occurredAt: occurredAt.toISOString(),
     note: '',
     source: 'website',
@@ -45,7 +49,7 @@ function log(
 
 function state(overrides: Partial<AppState> = {}): AppState {
   return {
-    version: 3,
+    version: 4,
     trackers: [tracker()],
     logs: [log('today-1', 0, 2), log('today-2', 0, 3), log('old', -6, 4)],
     settings: { theme: 'system', confirmDelete: true },

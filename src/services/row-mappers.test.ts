@@ -31,6 +31,8 @@ describe('row mappers', () => {
       color: '#2563eb',
       goal: null,
       presets: [1],
+      inputType: 'unit',
+      options: [],
       active: true,
       sortOrder: 0,
       createdAt: '2026-07-21T00:00:00.000Z'
@@ -51,6 +53,8 @@ describe('row mappers', () => {
       id: 'log-1',
       trackerId: 'tracker-1',
       value: 2,
+      recordType: 'unit',
+      optionId: null,
       occurredAt: '2026-07-21T01:00:00.000Z',
       note: '',
       source: 'website'
@@ -73,6 +77,8 @@ describe('row mappers', () => {
       color: '#2563eb',
       goal: 8,
       presets: [1, 2],
+      inputType: 'unit',
+      options: [],
       active: true,
       sortOrder: 3,
       createdAt: '2026-07-21T00:00:00.000Z'
@@ -81,6 +87,8 @@ describe('row mappers', () => {
       id: 'log-1',
       trackerId: 'tracker-1',
       value: 2,
+      recordType: 'unit',
+      optionId: null,
       occurredAt: '2026-07-21T01:00:00.000Z',
       note: '',
       source: ''

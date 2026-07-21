@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AppState, Tracker } from '../domain/models';
+import type { AppState, UnitTracker } from '../domain/models';
 import { blankState } from '../domain/schemas';
 import { createAppStore } from '../state/app-store';
 import { UserCache } from './cache';
@@ -28,10 +28,12 @@ const INPUT: TrackerInput = {
   presets: [250, 500]
 };
 
-function makeTracker(overrides: Partial<Tracker> = {}): Tracker {
+function makeTracker(overrides: Partial<UnitTracker> = {}): UnitTracker {
   return {
     id: 'tracker-1',
     ...INPUT,
+    inputType: 'unit',
+    options: [],
     active: true,
     sortOrder: 0,
     createdAt: '2026-07-20T00:00:00.000Z',
@@ -46,11 +48,11 @@ function makeState(): AppState {
     logs: [
       {
         id: 'log-related', trackerId: 'tracker-1', value: 250,
-        occurredAt: NOW, note: '', source: 'website'
+        occurredAt: NOW, note: '', source: 'website', recordType: 'unit', optionId: null
       },
       {
         id: 'log-other', trackerId: 'tracker-2', value: 1,
-        occurredAt: NOW, note: '', source: 'website'
+        occurredAt: NOW, note: '', source: 'website', recordType: 'unit', optionId: null
       }
     ]
   };
@@ -85,6 +87,8 @@ describe('TrackerService', () => {
     const tracker = {
       id: 'tracker-new',
       ...INPUT,
+      inputType: 'unit',
+      options: [],
       active: true,
       sortOrder: 0,
       createdAt: NOW

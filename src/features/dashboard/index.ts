@@ -1,4 +1,8 @@
-import type { AppState, Tracker, TrackingLog } from '../../domain/models';
+import type {
+  AppState,
+  UnitTracker,
+  UnitTrackingLog
+} from '../../domain/models';
 import {
   formatDateTime,
   localDateKey,
@@ -23,23 +27,29 @@ function emptyState(icon: string, title: string, text: string): string {
   return `<div class="empty-state"><div class="emoji">${icon}</div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(text)}</p></div>`;
 }
 
-function newestLogs(state: Readonly<AppState>): TrackingLog[] {
-  return [...state.logs].sort(
+function newestLogs(state: Readonly<AppState>): UnitTrackingLog[] {
+  return state.logs.filter((log): log is UnitTrackingLog => log.recordType === 'unit').sort(
     (left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime()
   );
 }
 
-function getTracker(state: Readonly<AppState>, id: string): Tracker | undefined {
-  return state.trackers.find(tracker => tracker.id === id);
+function getTracker(state: Readonly<AppState>, id: string): UnitTracker | undefined {
+  return state.trackers.find((tracker): tracker is UnitTracker => (
+    tracker.id === id && tracker.inputType === 'unit'
+  ));
 }
 
 function totalForDate(state: Readonly<AppState>, trackerId: string, dateKey: string): number {
   return state.logs
-    .filter(log => log.trackerId === trackerId && localDateKey(log.occurredAt) === dateKey)
+    .filter(log => (
+      log.recordType === 'unit'
+      && log.trackerId === trackerId
+      && localDateKey(log.occurredAt) === dateKey
+    ))
     .reduce((total, log) => total + Number(log.value), 0);
 }
 
-function activityRowHtml(state: Readonly<AppState>, log: TrackingLog): string {
+function activityRowHtml(state: Readonly<AppState>, log: UnitTrackingLog): string {
   const tracker = getTracker(state, log.trackerId);
   if (!tracker) return '';
   return `<div class="activity-row"><div class="activity-main"><div class="activity-icon" style="color:${tracker.color}">${escapeHtml(tracker.icon)}</div><div style="min-width:0"><p class="activity-name">${escapeHtml(tracker.name)}</p><p class="activity-meta">${formatDateTime(log.occurredAt)}${log.note ? ` · ${escapeHtml(log.note)}` : ''}</p></div></div><div style="display:flex;align-items:center;gap:8px"><div class="activity-value">+${formatValue(log.value)} <span>${escapeHtml(pluralUnit(tracker.unit, log.value))}</span></div></div></div>`;
@@ -47,8 +57,8 @@ function activityRowHtml(state: Readonly<AppState>, log: TrackingLog): string {
 
 function trackerCardHtml(
   state: Readonly<AppState>,
-  sortedLogs: readonly TrackingLog[],
-  tracker: Tracker
+  sortedLogs: readonly UnitTrackingLog[],
+  tracker: UnitTracker
 ): string {
   const total = totalForDate(state, tracker.id, localDateKey());
   const latest = sortedLogs.find(log => log.trackerId === tracker.id);
@@ -74,7 +84,9 @@ export function createDashboardController(
 
   const renderChart = (): void => {
     if (currentState === null) return;
-    const activeTrackers = currentState.trackers.filter(tracker => tracker.active);
+    const activeTrackers = currentState.trackers.filter((tracker): tracker is UnitTracker => (
+      tracker.inputType === 'unit' && tracker.active
+    ));
     const trackerId = chartTracker.value || activeTrackers[0]?.id;
     const tracker = trackerId === undefined
       ? undefined
@@ -134,10 +146,14 @@ export function createDashboardController(
     render(state) {
       currentState = state;
       const today = localDateKey();
-      const todaysLogs = state.logs.filter(log => localDateKey(log.occurredAt) === today);
+      const todaysLogs = state.logs.filter((log): log is UnitTrackingLog => (
+        log.recordType === 'unit' && localDateKey(log.occurredAt) === today
+      ));
       const sortedLogs = newestLogs(state);
       const newest = sortedLogs[0];
-      const activeTrackers = state.trackers.filter(tracker => tracker.active);
+      const activeTrackers = state.trackers.filter((tracker): tracker is UnitTracker => (
+        tracker.inputType === 'unit' && tracker.active
+      ));
 
       getElement('#statTodayEntries').textContent = String(todaysLogs.length);
       getElement('#statTodayCaption').textContent = todaysLogs.length

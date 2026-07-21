@@ -62,6 +62,8 @@ export function trackerFromRow(row: TrackerRow): Tracker {
     color: row.color,
     goal: row.daily_goal === null ? null : Number(row.daily_goal),
     presets: (row.quick_values ?? [1]).map(Number),
+    inputType: 'unit',
+    options: [],
     active: row.is_active,
     sortOrder: row.sort_order ?? 0,
     createdAt: row.created_at
@@ -69,6 +71,9 @@ export function trackerFromRow(row: TrackerRow): Tracker {
 }
 
 export function trackerToRow(tracker: Tracker, userId: string): TrackerWriteRow {
+  if (tracker.inputType !== 'unit') {
+    throw new Error('Option trackers are not supported by the version 3 row mapper.');
+  }
   return {
     id: tracker.id,
     user_id: userId,
@@ -88,6 +93,8 @@ export function logFromRow(row: TrackingLogRow): TrackingLog {
     id: row.id,
     trackerId: row.tracker_id,
     value: Number(row.value),
+    recordType: 'unit',
+    optionId: null,
     occurredAt: row.occurred_at,
     note: row.note || '',
     source: row.source || 'website'
@@ -95,6 +102,9 @@ export function logFromRow(row: TrackingLogRow): TrackingLog {
 }
 
 export function logToRow(log: TrackingLog, userId: string): TrackingLogWriteRow {
+  if (log.recordType !== 'unit') {
+    throw new Error('Option logs are not supported by the version 3 row mapper.');
+  }
   return {
     id: log.id,
     user_id: userId,

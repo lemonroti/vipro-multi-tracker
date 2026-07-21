@@ -12,20 +12,21 @@ const NOW = '2026-07-21T08:00:00.000Z';
 function tracker(): Tracker {
   return {
     id: 'tracker-1', name: 'Water', unit: 'glass', icon: '💧', color: '#2563eb',
-    goal: 8, presets: [1], active: true, sortOrder: 0, createdAt: NOW
+    goal: 8, presets: [1], inputType: 'unit', options: [],
+    active: true, sortOrder: 0, createdAt: NOW
   };
 }
 
 function log(): TrackingLog {
   return {
     id: 'log-1', trackerId: 'tracker-1', value: 1, occurredAt: NOW,
-    note: '', source: 'website'
+    note: '', source: 'website', recordType: 'unit', optionId: null
   };
 }
 
 function state(): AppState {
   return {
-    version: 3,
+    version: 4,
     trackers: [tracker()],
     logs: [log()],
     settings: { theme: 'dark', confirmDelete: false }

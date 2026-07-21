@@ -3,6 +3,7 @@ import {
   blankState,
   normalizeState,
   offlineOperationSchema,
+  trackerSchema,
   trackingLogSchema
 } from './schemas';
 import { makeDefaultTrackers } from './defaults';
@@ -23,6 +24,8 @@ describe('makeDefaultTrackers', () => {
         color: '#334155',
         goal: 8,
         presets: [1],
+        inputType: 'unit',
+        options: [],
         active: true,
         sortOrder: 0,
         createdAt: '2026-07-21T00:00:00.000Z'
@@ -35,6 +38,8 @@ describe('makeDefaultTrackers', () => {
         color: '#6d4aff',
         goal: 30,
         presets: [5, 10, 15],
+        inputType: 'unit',
+        options: [],
         active: true,
         sortOrder: 1,
         createdAt: '2026-07-21T00:00:00.000Z'
@@ -44,8 +49,58 @@ describe('makeDefaultTrackers', () => {
 });
 
 describe('normalizeState', () => {
-  it('returns the version 3 blank state for an empty object', () => {
+  it('returns the version 4 blank state for an empty object', () => {
     expect(normalizeState({})).toEqual(blankState());
+  });
+
+  it('normalizes legacy version 3 trackers and logs as Unit data', () => {
+    const now = '2026-07-21T00:00:00.000Z';
+    const legacy = normalizeState({
+      version: 3,
+      trackers: [{
+        id: 'tracker-1', name: 'Smoking', unit: 'cigarette', icon: '🚬',
+        color: '#334155', goal: 8, presets: [1], active: true,
+        sortOrder: 0, createdAt: now
+      }],
+      logs: [{
+        id: 'log-1', trackerId: 'tracker-1', value: 1,
+        occurredAt: now, note: '', source: 'website'
+      }],
+      settings: { theme: 'system', confirmDelete: true }
+    });
+
+    expect(legacy.version).toBe(4);
+    expect(legacy.trackers[0]).toMatchObject({ inputType: 'unit', options: [] });
+    expect(legacy.logs[0]).toMatchObject({ recordType: 'unit', optionId: null });
+  });
+
+  it('preserves current version 4 Option data', () => {
+    const now = '2026-07-21T00:00:00.000Z';
+    const current = normalizeState({
+      version: 4,
+      trackers: [{
+        id: 'tracker-1', name: 'Routine', inputType: 'option', unit: null,
+        icon: '✦', color: '#334155', goal: null, presets: [], active: true,
+        sortOrder: 0, createdAt: now,
+        options: [{ id: 'option-1', label: 'Sleep', sortOrder: 0, createdAt: now }]
+      }],
+      logs: [{
+        id: 'log-1', trackerId: 'tracker-1', recordType: 'option', value: null,
+        optionId: 'option-1', occurredAt: now, note: '', source: 'website'
+      }],
+      settings: { theme: 'system', confirmDelete: true }
+    });
+
+    expect(current.trackers[0]).toMatchObject({
+      inputType: 'option',
+      unit: null,
+      options: [{ id: 'option-1', label: 'Sleep' }]
+    });
+    expect(current.logs[0]).toMatchObject({
+      recordType: 'option',
+      value: null,
+      optionId: 'option-1'
+    });
   });
 
   it('normalizes a valid tracker and removes non-positive logs', () => {
@@ -141,16 +196,75 @@ describe('normalizeState', () => {
   });
 });
 
+describe('trackerSchema', () => {
+  it('accepts Unit and Option tracker variants', () => {
+    const common = {
+      id: 'tracker-1',
+      name: 'Tracker',
+      icon: '✦',
+      color: '#334155',
+      active: true,
+      sortOrder: 0,
+      createdAt: '2026-07-21T00:00:00.000Z'
+    };
+
+    expect(trackerSchema.safeParse({
+      ...common,
+      inputType: 'unit',
+      unit: 'count',
+      goal: null,
+      presets: [1],
+      options: []
+    }).success).toBe(true);
+    expect(trackerSchema.safeParse({
+      ...common,
+      inputType: 'option',
+      unit: null,
+      goal: null,
+      presets: [],
+      options: [{
+        id: 'option-1', label: 'Sleep', sortOrder: 0,
+        createdAt: '2026-07-21T00:00:00.000Z'
+      }]
+    }).success).toBe(true);
+  });
+});
+
 describe('trackingLogSchema', () => {
   it('rejects an empty tracker ID', () => {
     expect(trackingLogSchema.safeParse({
       id: 'log-1',
       trackerId: '',
       value: 1,
+      recordType: 'unit',
+      optionId: null,
       occurredAt: '2026-07-21T00:00:00.000Z',
       note: '',
       source: 'website'
     }).success).toBe(false);
+  });
+
+  it('accepts Unit and Option log variants', () => {
+    const common = {
+      id: 'log-1',
+      trackerId: 'tracker-1',
+      occurredAt: '2026-07-21T00:00:00.000Z',
+      note: '',
+      source: 'website'
+    };
+
+    expect(trackingLogSchema.safeParse({
+      ...common,
+      recordType: 'unit',
+      value: 1,
+      optionId: null
+    }).success).toBe(true);
+    expect(trackingLogSchema.safeParse({
+      ...common,
+      recordType: 'option',
+      value: null,
+      optionId: 'option-1'
+    }).success).toBe(true);
   });
 });
 
@@ -164,6 +278,8 @@ describe('offlineOperationSchema', () => {
       color: '#2563eb',
       goal: 2000,
       presets: [250],
+      inputType: 'unit',
+      options: [],
       active: true,
       sortOrder: 0,
       createdAt: '2026-07-21T00:00:00.000Z'
@@ -172,6 +288,8 @@ describe('offlineOperationSchema', () => {
       id: 'log-1',
       trackerId: 'tracker-1',
       value: 250,
+      recordType: 'unit',
+      optionId: null,
       occurredAt: '2026-07-21T01:00:00.000Z',
       note: '',
       source: 'website'

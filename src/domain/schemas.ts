@@ -1,31 +1,82 @@
 import { z } from 'zod';
-import type { AppState, Tracker, TrackingLog, UserSettings } from './models';
+import type {
+  AppState,
+  Tracker,
+  TrackerOption,
+  TrackingLog,
+  UserSettings
+} from './models';
 import type { OfflineOperation } from './operations';
 
 const COLORS = ['#334155', '#6d4aff', '#0f766e', '#c2410c', '#be185d', '#2563eb', '#7c2d12'];
 const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 
-export const trackerSchema: z.ZodType<Tracker> = z.object({
+export const trackerOptionSchema: z.ZodType<TrackerOption> = z.object({
   id: z.string(),
-  name: z.string(),
-  unit: z.string(),
-  icon: z.string(),
-  color: z.string().regex(COLOR_PATTERN),
-  goal: z.number().finite().nullable(),
-  presets: z.array(z.number().finite().positive()).max(8),
-  active: z.boolean(),
+  label: z.string().min(1).max(80),
   sortOrder: z.number().int(),
   createdAt: z.string()
 });
 
-export const trackingLogSchema: z.ZodType<TrackingLog> = z.object({
+const trackerBaseFields = {
+  id: z.string(),
+  name: z.string(),
+  icon: z.string(),
+  color: z.string().regex(COLOR_PATTERN),
+  active: z.boolean(),
+  sortOrder: z.number().int(),
+  createdAt: z.string()
+};
+
+export const unitTrackerSchema = z.object({
+  ...trackerBaseFields,
+  inputType: z.literal('unit'),
+  unit: z.string(),
+  goal: z.number().finite().nullable(),
+  presets: z.array(z.number().finite().positive()).max(8),
+  options: z.tuple([])
+});
+
+export const optionTrackerSchema = z.object({
+  ...trackerBaseFields,
+  inputType: z.literal('option'),
+  unit: z.null(),
+  goal: z.null(),
+  presets: z.tuple([]),
+  options: z.array(trackerOptionSchema).min(1).max(8)
+});
+
+export const trackerSchema: z.ZodType<Tracker> = z.discriminatedUnion('inputType', [
+  unitTrackerSchema,
+  optionTrackerSchema
+]);
+
+const trackingLogBaseFields = {
   id: z.string(),
   trackerId: z.string().min(1),
-  value: z.number().finite().positive(),
   occurredAt: z.string(),
   note: z.string(),
   source: z.string()
+};
+
+export const unitTrackingLogSchema = z.object({
+  ...trackingLogBaseFields,
+  recordType: z.literal('unit'),
+  value: z.number().finite().positive(),
+  optionId: z.null()
 });
+
+export const optionTrackingLogSchema = z.object({
+  ...trackingLogBaseFields,
+  recordType: z.literal('option'),
+  value: z.null(),
+  optionId: z.string().min(1)
+});
+
+export const trackingLogSchema: z.ZodType<TrackingLog> = z.discriminatedUnion('recordType', [
+  unitTrackingLogSchema,
+  optionTrackingLogSchema
+]);
 
 export const userSettingsSchema: z.ZodType<UserSettings> = z.object({
   theme: z.enum(['system', 'light', 'dark']),
@@ -75,6 +126,38 @@ function currentTimestamp(): string {
 function normalizeTracker(input: unknown, index: number): Tracker {
   const tracker = isObject(input) ? input : {};
   const rawColor = stringify(tracker.color);
+  const inputType = tracker.inputType === undefined ? 'unit' : tracker.inputType;
+  const common = {
+    id: stringify(tracker.id) || createId(),
+    name: stringify(tracker.name) || 'Untitled',
+    icon: stringify(tracker.icon) || '✦',
+    color: COLOR_PATTERN.test(rawColor) ? rawColor : COLORS[index % COLORS.length],
+    active: tracker.active !== false,
+    sortOrder: index,
+    createdAt: stringify(tracker.createdAt) || currentTimestamp()
+  };
+
+  if (inputType === 'option') {
+    const options = (Array.isArray(tracker.options) ? tracker.options : []).map((input, optionIndex) => {
+      const option = isObject(input) ? input : {};
+      return {
+        id: stringify(option.id) || createId(),
+        label: stringify(option.label),
+        sortOrder: optionIndex,
+        createdAt: stringify(option.createdAt) || currentTimestamp()
+      };
+    });
+
+    return trackerSchema.parse({
+      ...common,
+      inputType,
+      unit: null,
+      goal: null,
+      presets: [],
+      options
+    });
+  }
+
   const rawGoal = tracker.goal;
   const presets = (Array.isArray(tracker.presets) ? tracker.presets : [1])
     .map(Number)
@@ -82,37 +165,47 @@ function normalizeTracker(input: unknown, index: number): Tracker {
     .slice(0, 8);
 
   return trackerSchema.parse({
-    id: stringify(tracker.id) || createId(),
-    name: stringify(tracker.name) || 'Untitled',
+    ...common,
+    inputType,
     unit: stringify(tracker.unit) || 'count',
-    icon: stringify(tracker.icon) || '✦',
-    color: COLOR_PATTERN.test(rawColor) ? rawColor : COLORS[index % COLORS.length],
     goal: rawGoal === null || rawGoal === '' || rawGoal === undefined ? null : Number(rawGoal),
     presets,
-    active: tracker.active !== false,
-    sortOrder: index,
-    createdAt: stringify(tracker.createdAt) || currentTimestamp()
+    options: []
   });
 }
 
 function normalizeLog(input: unknown): TrackingLog | null {
   if (!isObject(input)) return null;
 
-  const result = trackingLogSchema.safeParse({
+  const recordType = input.recordType === undefined ? 'unit' : input.recordType;
+  const common = {
     id: stringify(input.id) || createId(),
     trackerId: stringify(input.trackerId),
-    value: Number(input.value),
     occurredAt: stringify(input.occurredAt) || currentTimestamp(),
     note: stringify(input.note),
     source: stringify(input.source) || 'website'
-  });
+  };
+
+  const result = trackingLogSchema.safeParse(recordType === 'option'
+    ? {
+        ...common,
+        recordType,
+        value: null,
+        optionId: stringify(input.optionId)
+      }
+    : {
+        ...common,
+        recordType,
+        value: Number(input.value),
+        optionId: null
+      });
 
   return result.success ? result.data : null;
 }
 
 export function blankState(): AppState {
   return {
-    version: 3,
+    version: 4,
     trackers: [],
     logs: [],
     settings: { theme: 'system', confirmDelete: true }
@@ -133,7 +226,7 @@ export function normalizeState(input: unknown): AppState {
   const settings = isObject(input.settings) ? input.settings : {};
 
   return {
-    version: 3,
+    version: 4,
     trackers,
     logs,
     settings: userSettingsSchema.parse({

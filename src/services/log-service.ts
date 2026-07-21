@@ -41,6 +41,8 @@ class LogServiceImplementation implements LogService {
     const parsed = trackingLogSchema.safeParse({
       id: this.createId(),
       ...input,
+      recordType: 'unit',
+      optionId: null,
       source: 'website'
     });
     if (!parsed.success) return validationError();
@@ -61,6 +63,8 @@ class LogServiceImplementation implements LogService {
     const parsed = trackingLogSchema.safeParse({
       id,
       ...input,
+      recordType: 'unit',
+      optionId: null,
       source: existing.source
     });
     if (!parsed.success) return validationError();

@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AppState, Tracker, TrackingLog, UserSettings } from '../domain/models';
+import type {
+  AppState,
+  Tracker,
+  TrackingLog,
+  UnitTracker,
+  UnitTrackingLog,
+  UserSettings
+} from '../domain/models';
 import type { OfflineOperation } from '../domain/operations';
 import { blankState } from '../domain/schemas';
 import { createAppStore } from '../state/app-store';
@@ -90,18 +97,19 @@ class FakeSettingsRepository implements SettingsRepository {
 
 const NOW = '2026-07-21T08:00:00.000Z';
 
-function makeTracker(overrides: Partial<Tracker> = {}): Tracker {
+function makeTracker(overrides: Partial<UnitTracker> = {}): UnitTracker {
   return {
     id: 'tracker-remote', name: 'Remote', unit: 'count', icon: '✦',
-    color: '#334155', goal: null, presets: [1], active: true,
+    color: '#334155', goal: null, presets: [1], inputType: 'unit', options: [], active: true,
     sortOrder: 0, createdAt: NOW, ...overrides
   };
 }
 
-function makeLog(overrides: Partial<TrackingLog> = {}): TrackingLog {
+function makeLog(overrides: Partial<UnitTrackingLog> = {}): UnitTrackingLog {
   return {
     id: 'log-remote', trackerId: 'tracker-remote', value: 1,
-    occurredAt: NOW, note: '', source: 'website', ...overrides
+    occurredAt: NOW, note: '', source: 'website',
+    recordType: 'unit', optionId: null, ...overrides
   };
 }
 

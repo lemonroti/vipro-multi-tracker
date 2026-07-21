@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AppState, TrackingLog } from '../domain/models';
+import type { AppState, TrackingLog, UnitTrackingLog } from '../domain/models';
 import { blankState } from '../domain/schemas';
 import { createAppStore } from '../state/app-store';
 import { UserCache } from './cache';
@@ -26,10 +26,12 @@ const INPUT: LogInput = {
   note: 'Morning'
 };
 
-function makeLog(overrides: Partial<TrackingLog> = {}): TrackingLog {
+function makeLog(overrides: Partial<UnitTrackingLog> = {}): UnitTrackingLog {
   return {
     id: 'log-1',
     ...INPUT,
+    recordType: 'unit',
+    optionId: null,
     source: 'website',
     ...overrides
   };
@@ -40,7 +42,8 @@ function makeState(logs: TrackingLog[] = [makeLog()]): AppState {
     ...blankState(),
     trackers: [{
       id: 'tracker-1', name: 'Water', unit: 'ml', icon: '💧', color: '#2563eb',
-      goal: 2000, presets: [250], active: true, sortOrder: 0, createdAt: NOW
+      goal: 2000, presets: [250], active: true, sortOrder: 0, createdAt: NOW,
+      inputType: 'unit', options: []
     }],
     logs
   };
@@ -72,7 +75,9 @@ describe('LogService', () => {
 
     const result = await service.add(INPUT);
 
-    const log = { id: 'log-new', ...INPUT, source: 'website' };
+    const log = {
+      id: 'log-new', ...INPUT, source: 'website', recordType: 'unit', optionId: null
+    };
     expect(result).toEqual({ ok: true, queued: false });
     expect(store.getState().logs).toEqual([log]);
     expect(execute).toHaveBeenCalledWith({
