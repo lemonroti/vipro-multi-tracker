@@ -48,6 +48,14 @@ jobs:
           text = text.replace("            if (logs.isEmpty)\n              return const _EmptyState(\n                icon: Icons.history,\n                title: 'No records yet',\n                message: 'Quick-record from Home to create your first entry.',\n              );", "            if (logs.isEmpty) {\n              return const _EmptyState(\n                icon: Icons.history,\n                title: 'No records yet',\n                message: 'Quick-record from Home to create your first entry.',\n              );\n            }")
           shell.write_text(text)
 
+          widget = Path('apps/flutter/lib/widget/tracker_widget.dart')
+          if widget.exists():
+            text = widget.read_text()
+            old = """    final tracker =\n        await (database.select(database.localTrackers)..where(\n              (row) =>\n                  row.userId.equals(session.user.id) &\n                  row.id.equals(trackerId) &\n                  row.deletedAt.isNull(),\n            ))\n            .getSingleOrNull();"""
+            new = """    final trackerQuery = database.select(database.localTrackers)\n      ..where((row) => row.userId.equals(session.user.id))\n      ..where((row) => row.id.equals(trackerId))\n      ..where((row) => row.deletedAt.isNull());\n    final tracker = await trackerQuery.getSingleOrNull();"""
+            text = text.replace(old, new)
+            widget.write_text(text)
+
           test = Path('apps/flutter/test/widget_test.dart')
           test.write_text("import 'package:flutter_test/flutter_test.dart';\n\nvoid main() {\n  test('test harness is available', () {\n    expect(1 + 1, 2);\n  });\n}\n")
           PY
