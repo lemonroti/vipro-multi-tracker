@@ -51,9 +51,14 @@ jobs:
           widget = Path('apps/flutter/lib/widget/tracker_widget.dart')
           if widget.exists():
             text = widget.read_text()
-            old = """    final tracker =\n        await (database.select(database.localTrackers)..where(\n              (row) =>\n                  row.userId.equals(session.user.id) &\n                  row.id.equals(trackerId) &\n                  row.deletedAt.isNull(),\n            ))\n            .getSingleOrNull();"""
-            new = """    final trackerQuery = database.select(database.localTrackers)\n      ..where((row) => row.userId.equals(session.user.id))\n      ..where((row) => row.id.equals(trackerId))\n      ..where((row) => row.deletedAt.isNull());\n    final tracker = await trackerQuery.getSingleOrNull();"""
-            text = text.replace(old, new)
+            old_query = """    final tracker =\n        await (database.select(database.localTrackers)..where(\n              (row) =>\n                  row.userId.equals(session.user.id) &\n                  row.id.equals(trackerId) &\n                  row.deletedAt.isNull(),\n            ))\n            .getSingleOrNull();"""
+            new_query = """    final trackerQuery = database.select(database.localTrackers)\n      ..where((row) => row.userId.equals(session.user.id))\n      ..where((row) => row.id.equals(trackerId))\n      ..where((row) => row.deletedAt.isNull());\n    final tracker = await trackerQuery.getSingleOrNull();"""
+            text = text.replace(old_query, new_query)
+            text = text.replace("import '../data/tracker_store.dart';", "import '../app/app_environment.dart';\nimport '../data/tracker_store.dart';")
+            init_marker = """  final session = Supabase.instance.client.auth.currentSession;"""
+            init_replacement = """  try {\n    Supabase.instance.client;\n  } catch (_) {\n    final environment = AppEnvironment.fromDefines();\n    await Supabase.initialize(\n      url: environment.supabaseUrl,\n      publishableKey: environment.supabasePublishableKey,\n    );\n  }\n\n  final session = Supabase.instance.client.auth.currentSession;"""
+            text = text.replace(init_marker, init_replacement, 1)
+            text = text.replace("""    await store.addLog(\n      trackerId: trackerId,\n      value: value,\n      occurredAt: DateTime.now(),\n      source: 'android-widget',\n    );\n    await _saveStatus""", """    await store.addLog(\n      trackerId: trackerId,\n      value: value,\n      occurredAt: DateTime.now(),\n      source: 'android-widget',\n    );\n    await store.sync();\n    await _saveStatus""")
             widget.write_text(text)
 
           test = Path('apps/flutter/test/widget_test.dart')
@@ -64,7 +69,7 @@ jobs:
             git config user.name github-actions[bot]
             git config user.email 41898282+github-actions[bot]@users.noreply.github.com
             git add apps/flutter/lib apps/flutter/test
-            git commit -m "fix(flutter): resolve analyzer findings"
+            git commit -m "fix(flutter): harden widget background recording"
             git push origin HEAD:flutter-android-mvp
           fi
       - name: Resolve dependencies
