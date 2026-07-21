@@ -96,6 +96,12 @@ jobs:
       - name: Resolve dependencies
         working-directory: apps/flutter
         run: flutter pub get
+      - name: Generate Drift sources
+        working-directory: apps/flutter
+        run: dart run build_runner build --delete-conflicting-outputs
+      - name: Format check
+        working-directory: apps/flutter
+        run: dart format --output=none --set-exit-if-changed lib test
       - name: Analyze
         working-directory: apps/flutter
         run: flutter analyze
