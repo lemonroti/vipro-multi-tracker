@@ -18,8 +18,6 @@ alter table public.trackers
       and (daily_goal is null or daily_goal >= 0)
       and quick_values is not null
       and cardinality(quick_values) between 1 and 8
-      and array_position(quick_values, null) is null
-      and 0 < all (quick_values)
     )
     or (
       input_type = 'option'

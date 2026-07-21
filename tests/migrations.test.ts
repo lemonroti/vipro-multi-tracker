@@ -83,6 +83,22 @@ describe('Supabase schema migrations', () => {
     expect(sql).toContain('restore_tracker_state');
   });
 
+  test('the additive Unit constraint preserves baseline quick-value compatibility', () => {
+    const sql = migrationBySuffix('add_option_trackers.sql');
+    const constraintStart = sql.indexOf('add constraint trackers_input_fields_check');
+    const constraintEnd = sql.indexOf(
+      'add constraint trackers_user_id_id_key',
+      constraintStart
+    );
+    const constraintSql = sql.slice(constraintStart, constraintEnd);
+
+    expect(constraintStart).toBeGreaterThanOrEqual(0);
+    expect(constraintEnd).toBeGreaterThan(constraintStart);
+    expect(constraintSql).toContain('cardinality(quick_values) between 1 and 8');
+    expect(constraintSql).not.toContain('array_position(quick_values, null)');
+    expect(constraintSql).not.toContain('0 < all (quick_values)');
+  });
+
   test('the version 4 restore validates option data before deleting user state', () => {
     const sql = migrationBySuffix('add_option_trackers.sql');
     const restoreStart = sql.indexOf('create or replace function public.restore_tracker_state');
