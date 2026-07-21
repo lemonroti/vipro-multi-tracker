@@ -49,4 +49,10 @@ describe('application design tokens', () => {
     expectAccessibleTokens(':root');
     expectAccessibleTokens("html[data-theme='dark']");
   });
+
+  test('apply the accessible boundary token to form controls', () => {
+    expect(stylesheet).toMatch(
+      /\.input,\s*\.select,\s*\.textarea\s*\{[^}]*border:\s*1px solid var\(--control-border\)/
+    );
+  });
 });

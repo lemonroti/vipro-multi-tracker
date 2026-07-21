@@ -924,7 +924,7 @@ textarea:disabled {
   min-width: 0;
   min-height: 44px;
   padding: 9px 11px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-control);
   outline: 0;
   background: var(--panel);
