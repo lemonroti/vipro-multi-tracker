@@ -41,8 +41,11 @@ modal behavior.
 
 ## Typography and font delivery
 
-Use Geist Sans for the entire UI. Load it from the official, version-pinned `geist` npm package so
-the production site does not depend on a runtime font CDN. The Vite build must bundle the font assets.
+Use Geist Sans for the entire UI. Load it from the version-pinned
+`@fontsource-variable/geist` npm package so the production site does not depend on a runtime font
+CDN. This package provides the Geist variable font as standard CSS/font assets that Vite can bundle;
+the `geist` package itself exposes Next.js-specific font modules and is not suitable for this app.
+The Vite build must bundle the font assets.
 The fallback remains `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
 sans-serif`.
 
@@ -55,8 +58,8 @@ Typography rules:
 - Keep body text at or above 12px and interactive labels at or above 13px.
 - Use `font-variant-numeric: tabular-nums` for metrics, values, and chart labels.
 
-Geist is distributed by Vercel under the SIL Open Font License 1.1 and supports installation through
-the official `geist` npm package.
+Geist is distributed by Vercel under the SIL Open Font License 1.1. Fontsource packages its font
+files for framework-agnostic bundlers such as Vite.
 
 ## Design tokens
 
@@ -161,7 +164,8 @@ The redesign is isolated to presentation concerns:
 - `index.html`: icon markup or small semantic structure adjustments only; retain IDs and data attributes.
 - `src/styles/app.css`: reorganize into readable token, base, layout, component, state, and responsive sections.
 - Feature renderers: update visual markup/classes only where required; preserve escaping and event data attributes.
-- `package.json` and lockfile: add only the pinned `geist` and `lucide` dependencies.
+- `package.json` and lockfile: add only the pinned `@fontsource-variable/geist` and `lucide`
+  dependencies.
 
 Do not change controller interfaces, store contracts, repository behavior, or data flow. Existing IDs,
 `data-*` hooks, and `hidden` behavior are regression-sensitive contracts.
