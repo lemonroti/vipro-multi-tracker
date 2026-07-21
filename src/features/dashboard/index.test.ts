@@ -1,0 +1,144 @@
+// @vitest-environment jsdom
+/* eslint-disable @typescript-eslint/unbound-method */
+
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import type { AppState, Tracker, TrackingLog } from '../../domain/models';
+import { createDashboardController, type DashboardDependencies } from './index';
+
+const NOW = new Date(2026, 6, 21, 12, 0, 0);
+
+function tracker(overrides: Partial<Tracker> = {}): Tracker {
+  return {
+    id: 'water',
+    name: 'Water',
+    unit: 'glass',
+    icon: '💧',
+    color: '#2563eb',
+    goal: 10,
+    presets: [2, 5],
+    active: true,
+    sortOrder: 0,
+    createdAt: NOW.toISOString(),
+    ...overrides
+  };
+}
+
+function log(
+  id: string,
+  dayOffset: number,
+  value: number,
+  overrides: Partial<TrackingLog> = {}
+): TrackingLog {
+  const occurredAt = new Date(NOW);
+  occurredAt.setDate(occurredAt.getDate() + dayOffset);
+  occurredAt.setHours(11, 0, 0, 0);
+  return {
+    id,
+    trackerId: 'water',
+    value,
+    occurredAt: occurredAt.toISOString(),
+    note: '',
+    source: 'website',
+    ...overrides
+  };
+}
+
+function state(overrides: Partial<AppState> = {}): AppState {
+  return {
+    version: 3,
+    trackers: [tracker()],
+    logs: [log('today-1', 0, 2), log('today-2', 0, 3), log('old', -6, 4)],
+    settings: { theme: 'system', confirmDelete: true },
+    ...overrides
+  };
+}
+
+function installDom(): void {
+  document.body.innerHTML = `
+    <span id="statTodayEntries"></span>
+    <span id="statTodayCaption"></span>
+    <span id="statActiveTrackers"></span>
+    <span id="statLastActivity"></span>
+    <span id="statLastCaption"></span>
+    <div id="dashboardTrackerGrid"></div>
+    <div id="dashboardActivity"></div>
+    <select id="dashboardChartTracker"></select>
+    <div id="dashboardChart"></div>
+  `;
+}
+
+function dependencies(): DashboardDependencies {
+  return {
+    addQuickLog: vi.fn().mockResolvedValue(undefined),
+    openCustomLog: vi.fn(),
+    openTrackerEditor: vi.fn()
+  };
+}
+
+describe('DashboardController', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    installDom();
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  test('renders statistics, recent activity, goal progress, quick values, and seven local days', () => {
+    const controller = createDashboardController(dependencies());
+
+    controller.render(state());
+
+    expect(document.querySelector('#statTodayEntries')?.textContent).toBe('2');
+    expect(document.querySelector('#statTodayCaption')?.textContent).toBe(
+      '5 total value logged'
+    );
+    expect(document.querySelector('#statActiveTrackers')?.textContent).toBe('1');
+    expect(document.querySelector('#statLastActivity')?.textContent).toBe('1h ago');
+    expect(document.querySelector('#statLastCaption')?.textContent).toContain('Water ·');
+    expect(document.querySelector('#dashboardActivity')?.textContent).toContain('+3 glass');
+    expect(document.querySelector<HTMLElement>('.progress-fill')?.style.width).toBe('50%');
+    expect(document.querySelector('#dashboardTrackerGrid')?.textContent).toContain('+2');
+    expect(document.querySelector('#dashboardTrackerGrid')?.textContent).toContain('+5');
+    const bars = [...document.querySelectorAll<HTMLElement>('#dashboardChart .bar')];
+    expect(bars).toHaveLength(7);
+    expect(bars[0]?.dataset.label).toBe('4 glass');
+    expect(bars[6]?.dataset.label).toBe('5 glass');
+  });
+
+  test('delegates tracker card actions once and removes the listener on destroy', () => {
+    const callbacks = dependencies();
+    const controller = createDashboardController(callbacks);
+    controller.render(state());
+    controller.render(state());
+
+    document.querySelector<HTMLButtonElement>('[data-quick-log]')?.click();
+    document.querySelector<HTMLButtonElement>('[data-custom-log]')?.click();
+    document.querySelector<HTMLButtonElement>('[data-edit-from-card]')?.click();
+
+    expect(callbacks.addQuickLog).toHaveBeenCalledOnce();
+    expect(callbacks.addQuickLog).toHaveBeenCalledWith('water', 2);
+    expect(callbacks.openCustomLog).toHaveBeenCalledWith('water');
+    expect(callbacks.openTrackerEditor).toHaveBeenCalledWith('water');
+
+    controller.destroy();
+    document.querySelector<HTMLButtonElement>('[data-quick-log]')?.click();
+    expect(callbacks.addQuickLog).toHaveBeenCalledOnce();
+  });
+
+  test('renders the existing empty states without an active tracker or record', () => {
+    const controller = createDashboardController(dependencies());
+
+    controller.render(state({ trackers: [], logs: [] }));
+
+    expect(document.querySelector('#dashboardTrackerGrid')?.textContent).toContain(
+      'No active trackers'
+    );
+    expect(document.querySelector('#dashboardActivity')?.textContent).toContain(
+      'No records yet'
+    );
+    expect(document.querySelector('#dashboardChart')?.textContent).toContain(
+      'No chart available'
+    );
+  });
+});

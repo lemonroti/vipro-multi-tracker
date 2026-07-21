@@ -2,28 +2,44 @@
 
 ## Project Structure & Module Organization
 
-This is a build-free static web application served from the repository root.
+This is a Vite and TypeScript static web application. `index.html` is the application shell and
+`src/main.ts` is the only runtime entry point.
 
-- `index.html` contains the application shell and loads `styles.css` and `app.js`.
-- `app.js` loads Supabase and the runtime bundles in dependency order.
-- `app-1.js` defines configuration, shared state, and utility functions.
-- `app-2.js` handles Supabase persistence, cloud loading, and the offline queue.
-- `app-3a.js` contains rendering functions; `app-3b.js` contains tracker/log interactions and modals.
-- `app-4a.js` handles settings, import/export, sample data, and destructive operations.
-- `app-4b.js` binds events, updates connection state, and initializes the app.
-- `styles.css` contains all responsive and theme styling.
+- `src/domain/` contains validated models, schemas, defaults, and offline operations.
+- `src/state/` owns the application store.
+- `src/services/` contains auth, Supabase repositories, cache, queue, sync, cloud state, and backup logic.
+- `src/features/` contains the UI controllers for each application area.
+- `src/runtime/` composes production adapters; `src/testing/` contains dev-only browser fixtures.
+- `src/styles/` contains responsive and theme styling.
+- `tests/e2e/` contains Playwright browser flows.
+- `supabase/migrations/` contains the versioned PostgreSQL schema.
+- `dist/` is generated deployment output and must not be edited or committed.
 
-No asset or test directories exist. Release tooling lives in `package.json`, commitlint configuration in `commitlint.config.cjs`, and Git hooks under `.husky/`. Preserve the runtime bundle order in `app.js`.
+Release tooling lives in `package.json`, commitlint configuration in `commitlint.config.cjs`, and
+Git hooks under `.husky/`.
 
 ## Build, Test, and Development Commands
 
-Install contributor tooling with `npm install`. The app remains build-free. Serve it locally because ES modules are unreliable over `file://`:
+Install contributor tooling with `npm install`, then start Vite:
 
 ```powershell
-python -m http.server 8080
+npm run dev
 ```
 
-Open `http://localhost:8080`. `npm run commitlint` checks the latest commit. Use `npm run release:dry` for release previews; do not rerun the completed first-release workflow. Run `git diff --check` before committing. GitHub Pages deploys from the `main` branch root.
+Run the complete application verification gate with:
+
+```powershell
+npm run typecheck
+npm run lint
+npm run test
+npm run test:e2e
+npm run build
+git diff --check
+```
+
+`npm run commitlint` checks the latest commit. Use `npm run release:dry` for release previews; do
+not rerun the completed first-release workflow. GitHub Pages deploys the generated `dist/`
+directory through GitHub Actions only from `main`; `dev` must never deploy production.
 
 ## Coding Style & Naming Conventions
 
@@ -31,7 +47,10 @@ Use two-space indentation, single-quoted JavaScript strings, and semicolons. Use
 
 ## Testing Guidelines
 
-There is no automated test framework yet. Manually verify authentication, tracker/log CRUD, persistence, offline recovery, responsive layouts, themes, and import/export. Test UI changes in light and dark modes. Put future automated tests under `tests/` and document their runner in `README.md`.
+Vitest covers domain, services, state, feature controllers, and migration contracts. Playwright covers
+authentication visibility, tracker/log CRUD, offline recovery, responsive layouts, and themes with
+deterministic dev-only fixtures. Manually verify production Supabase authentication and cloud loading
+without changing real data; use a backup/test account for destructive import, clear, reset, or sample-data checks.
 
 ## Commit & Pull Request Guidelines
 
