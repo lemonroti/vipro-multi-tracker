@@ -1,0 +1,47 @@
+name: Flutter Scaffold Artifact
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scaffold:
+    if: github.head_ref == 'flutter-android-mvp' || github.ref == 'refs/heads/flutter-android-mvp'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate Android Flutter project
+        run: |
+          rm -rf apps/flutter
+          flutter create \
+            --platforms=android \
+            --org com.lemonroti \
+            --project-name vipro_multi_tracker \
+            apps/flutter
+      - name: Set Android application ID
+        run: |
+          sed -i 's/com\.lemonroti\.vipro_multi_tracker/com.lemonroti.multitracker/g' apps/flutter/android/app/build.gradle.kts
+          mkdir -p apps/flutter/android/app/src/main/kotlin/com/lemonroti/multitracker
+          mv apps/flutter/android/app/src/main/kotlin/com/lemonroti/vipro_multi_tracker/MainActivity.kt apps/flutter/android/app/src/main/kotlin/com/lemonroti/multitracker/MainActivity.kt
+          sed -i 's/package com\.lemonroti\.vipro_multi_tracker/package com.lemonroti.multitracker/' apps/flutter/android/app/src/main/kotlin/com/lemonroti/multitracker/MainActivity.kt
+          rm -rf apps/flutter/android/app/src/main/kotlin/com/lemonroti/vipro_multi_tracker
+      - name: Set Android minimum SDK
+        run: sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/' apps/flutter/android/app/build.gradle.kts
+      - name: Upload scaffold
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-android-scaffold
+          path: apps/flutter
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 2
