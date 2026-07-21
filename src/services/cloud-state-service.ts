@@ -19,14 +19,23 @@ export interface CloudStateService {
 
 function applyOperation(state: AppState, operation: OfflineOperation): AppState {
   if (operation.type === 'upsertTracker') {
-    const exists = state.trackers.some(tracker => tracker.id === operation.payload.id);
+    const existing = state.trackers.find(tracker => tracker.id === operation.payload.id);
+    const retainedOptionIds = new Set(operation.payload.options.map(option => option.id));
+    const removedOptionIds = new Set(
+      existing?.options
+        .filter(option => !retainedOptionIds.has(option.id))
+        .map(option => option.id) ?? []
+    );
     return {
       ...state,
-      trackers: exists
+      trackers: existing !== undefined
         ? state.trackers.map(tracker => (
             tracker.id === operation.payload.id ? operation.payload : tracker
           ))
-        : [...state.trackers, operation.payload]
+        : [...state.trackers, operation.payload],
+      logs: state.logs.filter(log => (
+        log.optionId === null || !removedOptionIds.has(log.optionId)
+      ))
     };
   }
 

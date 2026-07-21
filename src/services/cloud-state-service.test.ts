@@ -261,6 +261,55 @@ describe('CloudStateService', () => {
     expect(store.getState()).toEqual(state);
   });
 
+  it('removes logs for deleted options when overlaying a queued tracker edit', async () => {
+    const optionTracker: Tracker = {
+      id: 'option-tracker', name: 'Routine', icon: '✦', color: '#334155',
+      inputType: 'option', unit: null, goal: null, presets: [], active: true,
+      sortOrder: 0, createdAt: NOW,
+      options: [
+        { id: 'sleep', label: 'Sleep', sortOrder: 0, createdAt: NOW },
+        { id: 'exercise', label: 'Exercise', sortOrder: 1, createdAt: NOW }
+      ]
+    };
+    const pendingTracker: Tracker = {
+      ...optionTracker,
+      options: [{ id: 'exercise', label: 'Exercise', sortOrder: 0, createdAt: NOW }]
+    };
+    const logs: TrackingLog[] = [
+      {
+        id: 'sleep-log', trackerId: 'option-tracker', value: null,
+        occurredAt: NOW, note: '', source: 'website',
+        recordType: 'option', optionId: 'sleep'
+      },
+      {
+        id: 'exercise-log', trackerId: 'option-tracker', value: null,
+        occurredAt: NOW, note: '', source: 'website',
+        recordType: 'option', optionId: 'exercise'
+      }
+    ];
+    const execute: OperationExecutor = () => Promise.reject(
+      new RepositoryError('network', 'Still offline')
+    );
+    const { queue, service } = createHarness({
+      trackers: [optionTracker],
+      logs,
+      settings: { theme: 'light', confirmDelete: true },
+      execute
+    });
+    enqueue(queue, {
+      id: 'pending-option-edit',
+      type: 'upsertTracker',
+      payload: pendingTracker,
+      createdAt: NOW,
+      retryCount: 0
+    });
+
+    const state = await service.load({ hasPendingOperations: true });
+
+    expect(state.trackers).toEqual([pendingTracker]);
+    expect(state.logs.map(log => log.id)).toEqual(['exercise-log']);
+  });
+
   it('reloads cloud state after a destructive failure without executing queued operations', async () => {
     const events: string[] = [];
     const execute: OperationExecutor = operation => {

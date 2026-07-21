@@ -104,6 +104,7 @@ export function createTrackerController(
     const id = getElement<HTMLInputElement>('#trackerEditId').value;
     const input: TrackerInput = {
       ...(id ? { id } : {}),
+      inputType: 'unit',
       name: getElement<HTMLInputElement>('#trackerName').value.trim(),
       icon: getElement<HTMLInputElement>('#trackerIcon').value.trim() || '✦',
       unit: getElement<HTMLInputElement>('#trackerUnit').value.trim(),

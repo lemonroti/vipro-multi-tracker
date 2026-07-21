@@ -113,6 +113,7 @@ describe('TrackerController', () => {
 
     expect(deps.service.save).toHaveBeenCalledWith({
       id: 'water',
+      inputType: 'unit',
       name: 'Hydration',
       unit: 'cup',
       icon: '💧',

@@ -13,15 +13,24 @@ export type OperationResult =
   | { ok: true; queued: boolean }
   | { ok: false; error: ApplicationError };
 
-export interface TrackerInput {
+interface TrackerInputBase {
   id?: string;
   name: string;
-  unit: string;
   icon: string;
   color: string;
-  goal: number | null;
-  presets: number[];
 }
+
+export type TrackerInput =
+  | (TrackerInputBase & {
+      inputType: 'unit';
+      unit: string;
+      goal: number | null;
+      presets: number[];
+    })
+  | (TrackerInputBase & {
+      inputType: 'option';
+      optionLabels: string[];
+    });
 
 export interface LogInput {
   trackerId: string;
