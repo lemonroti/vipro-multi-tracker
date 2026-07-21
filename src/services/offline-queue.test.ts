@@ -272,6 +272,20 @@ describe('OfflineQueue', () => {
     ).map(operation => operation.id)).toEqual(['tracker-removal', 'exercise-log']);
   });
 
+  it('keeps a replacement before retained option logs when purging an earlier removed option log', () => {
+    const storage = new MemoryStorage();
+    const queue = new OfflineQueue(storage);
+    const initial = optionTrackerUpsert('tracker-initial', ['sleep', 'exercise'], '2026-07-21T08:00:00.000Z');
+    const sleepLog = optionLogUpsert('sleep-log', 'sleep', '2026-07-21T08:01:00.000Z');
+    const exerciseLog = optionLogUpsert('exercise-log', 'exercise', '2026-07-21T08:02:00.000Z');
+    storage.setItem(`${QUEUE_KEY_PREFIX}user-a`, JSON.stringify([sleepLog, initial, exerciseLog]));
+
+    expect(queue.enqueue(
+      'user-a',
+      optionTrackerUpsert('tracker-replacement', ['exercise'], '2026-07-21T08:03:00.000Z')
+    ).map(operation => operation.id)).toEqual(['tracker-replacement', 'exercise-log']);
+  });
+
   it('normalizes legacy v3 Unit tracker and log upserts from the existing queue key', () => {
     const storage = new MemoryStorage();
     const queue = new OfflineQueue(storage);

@@ -123,20 +123,29 @@ test.describe('tracker and log workflows', () => {
     );
   });
 
-  test('renames and reorders an Option before confirmed removal cascades its log', async ({
+  test('creates, renames, and reorders an Option before confirmed removal cascades its log', async ({
     page
   }, testInfo) => {
-    const trackerCard = page.locator('.tracker-card').filter({ hasText: 'Sleep Tracker' });
-    await trackerCard.locator('[data-option-id="option-wake"]').click();
+    await navigation(page, testInfo).getByRole('link', { name: /Trackers/ }).click();
+    const trackerView = page.locator('#view-trackers');
+    await trackerView.getByRole('button', { name: '+ New tracker' }).click();
+    const createTrackerDialog = page.getByRole('dialog', { name: 'Create tracker' });
+    await createTrackerDialog.getByLabel('Tracker name').fill('Routine');
+    await createTrackerDialog.getByLabel('Tracking type').selectOption('option');
+    await createTrackerDialog.getByLabel('Options, separated by commas').fill('Sleep, Wake');
+    await createTrackerDialog.getByRole('button', { name: 'Save tracker' }).click();
+
+    await navigation(page, testInfo).locator('[data-nav="dashboard"]').click();
+    const trackerCard = page.locator('.tracker-card').filter({ hasText: 'Routine' });
+    await trackerCard.locator('[data-option-id]').filter({ hasText: 'Wake' }).click();
 
     await navigation(page, testInfo).getByRole('link', { name: /History/ }).click();
     const historyView = page.locator('#view-history');
-    const row = historyView.locator('.activity-row').filter({ hasText: 'Sleep Tracker' });
+    const row = historyView.locator('.activity-row').filter({ hasText: 'Routine' });
     await expect(row).toContainText('Wake');
 
     await navigation(page, testInfo).getByRole('link', { name: /Trackers/ }).click();
-    const trackerView = page.locator('#view-trackers');
-    const managedTracker = trackerView.locator('.manage-card').filter({ hasText: 'Sleep Tracker' });
+    const managedTracker = trackerView.locator('.manage-card').filter({ hasText: 'Routine' });
     await managedTracker.getByRole('button', { name: 'Edit' }).click();
     let editTrackerDialog = page.getByRole('dialog', { name: 'Edit tracker' });
     await editTrackerDialog
@@ -165,7 +174,7 @@ test.describe('tracker and log workflows', () => {
     await expect(editTrackerDialog).toBeHidden();
 
     await navigation(page, testInfo).getByRole('link', { name: /History/ }).click();
-    await expect(historyView.locator('.activity-row').filter({ hasText: 'Sleep Tracker' }))
+    await expect(historyView.locator('.activity-row').filter({ hasText: 'Routine' }))
       .toHaveCount(0);
   });
 });

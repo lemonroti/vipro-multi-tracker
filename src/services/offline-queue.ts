@@ -119,7 +119,19 @@ export class OfflineQueue {
     const replacesUpsert = replacementIndex >= 0
       && (nextOperation.type === 'upsertTracker' || nextOperation.type === 'upsertLog');
     if (replacesUpsert) {
-      operations.splice(replacementIndex, 0, nextOperation);
+      const dependentLogIndex = nextOperation.type === 'upsertTracker'
+        && nextOperation.payload.inputType === 'option'
+        ? operations.findIndex(operation => (
+            operation.type === 'upsertLog'
+            && operation.payload.recordType === 'option'
+            && operation.payload.trackerId === nextOperation.payload.id
+          ))
+        : -1;
+      operations.splice(
+        dependentLogIndex >= 0 ? dependentLogIndex : Math.min(replacementIndex, operations.length),
+        0,
+        nextOperation
+      );
     } else {
       operations.push(nextOperation);
     }
