@@ -6,19 +6,21 @@
   --panel-3: #f0f1f5;
   --text: #18181b;
   --muted: #60616b;
-  --subtle: #858793;
+  --subtle: #6f707a;
   --line: #e3e4e9;
   --line-strong: #d4d5dc;
+  --control-border: #8c8e98;
   --brand: #6d4aff;
-  --brand-hover: #5d3dea;
   --brand-2: #f0edff;
   --brand-line: #d9d1ff;
-  --danger: #d92d20;
+  --action: #6d4aff;
+  --action-hover: #5d3dea;
+  --danger: #c01c13;
   --danger-soft: #fff1f0;
   --success: #16835c;
   --warning: #b54708;
   --warning-soft: #fffaeb;
-  --focus: color-mix(in srgb, var(--brand) 25%, transparent);
+  --focus-ring: #6d4aff;
   --shadow-card: 0 1px 2px rgba(24, 24, 27, 0.035);
   --shadow-popover: 0 20px 60px rgba(24, 24, 27, 0.16);
   --radius-control: 10px;
@@ -34,19 +36,21 @@ html[data-theme='dark'] {
   --panel-3: #22232a;
   --text: #f4f4f5;
   --muted: #aaaab4;
-  --subtle: #81818d;
+  --subtle: #a0a0aa;
   --line: #292a32;
   --line-strong: #393a44;
+  --control-border: #686975;
   --brand: #9b87ff;
-  --brand-hover: #aa99ff;
   --brand-2: #292343;
   --brand-line: #463d71;
+  --action: #7656e8;
+  --action-hover: #6748d4;
   --danger: #ff7a70;
   --danger-soft: #351c1d;
   --success: #5bd6a8;
   --warning: #fdb66b;
   --warning-soft: #332416;
-  --focus: color-mix(in srgb, var(--brand) 32%, transparent);
+  --focus-ring: #9b87ff;
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.16);
   --shadow-popover: 0 24px 72px rgba(0, 0, 0, 0.5);
   color-scheme: dark;
@@ -102,7 +106,7 @@ svg {
 }
 
 :focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -148,9 +152,9 @@ textarea:disabled {
   height: 40px;
   border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent);
   border-radius: 12px;
-  background: var(--brand);
+  background: var(--action);
   color: #ffffff;
-  box-shadow: 0 5px 15px color-mix(in srgb, var(--brand) 18%, transparent);
+  box-shadow: 0 5px 15px color-mix(in srgb, var(--action) 18%, transparent);
   font-size: 13px;
   font-weight: 750;
   letter-spacing: -0.02em;
@@ -340,20 +344,20 @@ textarea:disabled {
 .button.primary,
 .button.brand {
   margin: 0;
-  border-color: var(--brand);
-  background: var(--brand);
+  border-color: var(--action);
+  background: var(--action);
   color: #ffffff;
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--brand) 24%, transparent);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--action) 24%, transparent);
 }
 
 .button.primary:hover,
 .button.brand:hover {
-  border-color: var(--brand-hover);
-  background: var(--brand-hover);
+  border-color: var(--action-hover);
+  background: var(--action-hover);
 }
 
 .button.outline {
-  border-color: var(--line-strong);
+  border-color: var(--control-border);
   background: var(--panel);
 }
 
@@ -406,7 +410,7 @@ textarea:disabled {
 }
 
 .icon-button:hover {
-  border-color: var(--line-strong);
+  border-color: var(--control-border);
   background: var(--panel-2);
   color: var(--text);
 }
@@ -640,7 +644,7 @@ textarea:disabled {
 
 .custom-button {
   min-width: 82px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--control-border);
   background: var(--panel);
   color: var(--muted);
 }
@@ -874,7 +878,7 @@ textarea:disabled {
   z-index: 2;
   padding: 4px 7px;
   transform: translateX(-50%);
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--control-border);
   border-radius: 7px;
   background: var(--text);
   color: var(--bg);
@@ -941,14 +945,14 @@ textarea:disabled {
 .input:hover,
 .select:hover,
 .textarea:hover {
-  border-color: color-mix(in srgb, var(--brand) 25%, var(--line-strong));
+  border-color: var(--focus-ring);
 }
 
 .input:focus,
 .select:focus,
 .textarea:focus {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 3px var(--focus);
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 /* Tracker management and settings */
@@ -1072,7 +1076,7 @@ textarea:disabled {
   padding: 0;
   border: 0;
   border-radius: 999px;
-  background: var(--line-strong);
+  background: var(--control-border);
   transition: background-color 180ms ease;
 }
 
@@ -1090,7 +1094,7 @@ textarea:disabled {
 }
 
 .toggle.on {
-  background: var(--brand);
+  background: var(--action);
 }
 
 .toggle.on::after {
@@ -1207,7 +1211,7 @@ textarea:disabled {
   padding: 0;
   border: 3px solid var(--panel);
   border-radius: 50%;
-  box-shadow: 0 0 0 1px var(--line-strong);
+  box-shadow: 0 0 0 1px var(--control-border);
 }
 
 .color-option.selected {

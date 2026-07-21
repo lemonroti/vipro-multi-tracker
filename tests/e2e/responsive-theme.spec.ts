@@ -11,6 +11,10 @@ test('desktop navigation changes views and persists a dark theme', async ({ page
   await expect.poll(async () => page.locator('body').evaluate(element => (
     getComputedStyle(element).fontFamily
   ))).toContain('Geist Variable');
+  expect(await page.evaluate(async () => {
+    await document.fonts.ready;
+    return document.fonts.check('16px "Geist Variable"');
+  })).toBe(true);
   await page.locator('.sidebar').getByRole('link', { name: 'Settings' }).click();
   await expect(page.locator('#view-settings')).toBeVisible();
   await page.getByLabel('Theme').selectOption('dark');
