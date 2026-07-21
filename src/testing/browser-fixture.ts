@@ -19,6 +19,7 @@ const FIXTURE_USER: SessionUser = {
   id: 'fixture-user',
   email: 'browser@example.test'
 };
+const FIXTURE_NOW = '2026-07-21T08:00:00.000Z';
 const REPOSITORY_ERROR_MESSAGE = 'Fixture repository unavailable.';
 
 function todayAt(hour: number): string {
@@ -58,6 +59,33 @@ function populatedState(): AppState {
         active: true,
         sortOrder: 1,
         createdAt: todayAt(8)
+      },
+      {
+        id: 'tracker-sleep',
+        inputType: 'option',
+        name: 'Sleep Tracker',
+        unit: null,
+        goal: null,
+        presets: [],
+        icon: '🌙',
+        color: '#6d4aff',
+        options: [
+          {
+            id: 'option-sleep',
+            label: 'Sleep',
+            sortOrder: 0,
+            createdAt: FIXTURE_NOW
+          },
+          {
+            id: 'option-wake',
+            label: 'Wake',
+            sortOrder: 1,
+            createdAt: FIXTURE_NOW
+          }
+        ],
+        active: true,
+        sortOrder: 2,
+        createdAt: FIXTURE_NOW
       }
     ],
     logs: [
@@ -153,7 +181,18 @@ class FixtureRepositories implements RuntimeRepositories {
     upsert: tracker => this.mutate(() => {
       const index = this.state.trackers.findIndex(candidate => candidate.id === tracker.id);
       if (index === -1) this.state.trackers.push(structuredClone(tracker));
-      else this.state.trackers[index] = structuredClone(tracker);
+      else {
+        const retainedOptionIds = new Set(tracker.options.map(option => option.id));
+        const removedOptionIds = new Set(
+          this.state.trackers[index]!.options
+            .filter(option => !retainedOptionIds.has(option.id))
+            .map(option => option.id)
+        );
+        this.state.trackers[index] = structuredClone(tracker);
+        this.state.logs = this.state.logs.filter(log => (
+          log.optionId === null || !removedOptionIds.has(log.optionId)
+        ));
+      }
     }),
     delete: id => this.mutate(() => {
       this.state.trackers = this.state.trackers.filter(tracker => tracker.id !== id);
@@ -235,6 +274,7 @@ export function createBrowserFixture(
   );
 
   if (scenario === 'offline-pending') {
+    const queue = new OfflineQueue(storage);
     const pendingLog: TrackingLog = {
       id: 'pending-log',
       trackerId: 'tracker-water',
@@ -245,16 +285,18 @@ export function createBrowserFixture(
       note: 'Queued while offline',
       source: 'website'
     };
-    const cached = cloneState(initialState);
-    cached.logs.push(pendingLog);
-    new UserCache(storage).save(FIXTURE_USER.id, cached);
-    new OfflineQueue(storage).enqueue(FIXTURE_USER.id, {
-      id: 'pending-log-operation',
-      type: 'upsertLog',
-      payload: pendingLog,
-      createdAt: todayAt(12),
-      retryCount: 0
-    });
+    if (queue.load(FIXTURE_USER.id).length === 0) {
+      const cached = cloneState(initialState);
+      cached.logs.push(pendingLog);
+      new UserCache(storage).save(FIXTURE_USER.id, cached);
+      queue.enqueue(FIXTURE_USER.id, {
+        id: 'pending-log-operation',
+        type: 'upsertLog',
+        payload: pendingLog,
+        createdAt: todayAt(12),
+        retryCount: 0
+      });
+    }
   }
 
   let nextId = 0;

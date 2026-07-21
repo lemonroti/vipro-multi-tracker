@@ -71,4 +71,101 @@ test.describe('tracker and log workflows', () => {
       .click();
     await expect(historyView.locator('#historyGroups')).not.toContainText('Large gym bottle');
   });
+
+  test('creates an Option tracker, edits its quick log, and locks its type', async ({
+    page
+  }, testInfo) => {
+    await navigation(page, testInfo).getByRole('link', { name: /Trackers/ }).click();
+    const trackerView = page.locator('#view-trackers');
+    await trackerView.getByRole('button', { name: '+ New tracker' }).click();
+    const createTrackerDialog = page.getByRole('dialog', { name: 'Create tracker' });
+    await createTrackerDialog.getByLabel('Tracker name').fill('Bedtime');
+    await createTrackerDialog.getByLabel('Tracking type').selectOption('option');
+    await createTrackerDialog
+      .getByLabel('Options, separated by commas')
+      .fill('Sleep, Wake');
+    await createTrackerDialog.getByRole('button', { name: 'Save tracker' }).click();
+
+    const managedTracker = trackerView.locator('.manage-card').filter({ hasText: 'Bedtime' });
+    await expect(managedTracker).toContainText('Options: Sleep, Wake');
+
+    await navigation(page, testInfo).locator('[data-nav="dashboard"]').click();
+    const trackerCard = page.locator('.tracker-card').filter({ hasText: 'Bedtime' });
+    await trackerCard.locator('[data-option-id]').filter({ hasText: 'Wake' }).click();
+    await expect(page.locator('#toastMessage')).toContainText('Bedtime: Wake recorded');
+
+    await navigation(page, testInfo).getByRole('link', { name: /History/ }).click();
+    const historyView = page.locator('#view-history');
+    const row = historyView.locator('.activity-row').filter({ hasText: 'Bedtime' });
+    await expect(row).toContainText('Wake');
+    await row.getByRole('button', { name: 'Edit record' }).click();
+    const editLogDialog = page.getByRole('dialog', { name: 'Edit record' });
+    await editLogDialog.getByLabel('Date and time').fill('2026-07-20T21:45');
+    await editLogDialog.getByLabel('Note (optional)').fill('Ready for bed');
+    await editLogDialog.getByRole('button', { name: 'Save record' }).click();
+
+    const expectedTimestamp = await page.evaluate(() => new Intl.DateTimeFormat(undefined, {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    }).format(new Date('2026-07-20T21:45')));
+    await expect(row).toContainText(expectedTimestamp);
+    await expect(row).toContainText('Ready for bed');
+
+    await navigation(page, testInfo).getByRole('link', { name: /Trackers/ }).click();
+    await managedTracker.getByRole('button', { name: 'Edit' }).click();
+    const editTrackerDialog = page.getByRole('dialog', { name: 'Edit tracker' });
+    await expect(editTrackerDialog.getByLabel('Tracking type')).toBeDisabled();
+    await expect(editTrackerDialog).toContainText(
+      'Tracking type cannot change after records exist.'
+    );
+  });
+
+  test('renames and reorders an Option before confirmed removal cascades its log', async ({
+    page
+  }, testInfo) => {
+    const trackerCard = page.locator('.tracker-card').filter({ hasText: 'Sleep Tracker' });
+    await trackerCard.locator('[data-option-id="option-wake"]').click();
+
+    await navigation(page, testInfo).getByRole('link', { name: /History/ }).click();
+    const historyView = page.locator('#view-history');
+    const row = historyView.locator('.activity-row').filter({ hasText: 'Sleep Tracker' });
+    await expect(row).toContainText('Wake');
+
+    await navigation(page, testInfo).getByRole('link', { name: /Trackers/ }).click();
+    const trackerView = page.locator('#view-trackers');
+    const managedTracker = trackerView.locator('.manage-card').filter({ hasText: 'Sleep Tracker' });
+    await managedTracker.getByRole('button', { name: 'Edit' }).click();
+    let editTrackerDialog = page.getByRole('dialog', { name: 'Edit tracker' });
+    await editTrackerDialog
+      .getByLabel('Options, separated by commas')
+      .fill('Sleep, Awake');
+    await editTrackerDialog.getByRole('button', { name: 'Save tracker' }).click();
+    await expect(row).toContainText('Awake');
+
+    await managedTracker.getByRole('button', { name: 'Edit' }).click();
+    editTrackerDialog = page.getByRole('dialog', { name: 'Edit tracker' });
+    await editTrackerDialog
+      .getByLabel('Options, separated by commas')
+      .fill('Awake, Sleep');
+    await editTrackerDialog.getByRole('button', { name: 'Save tracker' }).click();
+    await expect(managedTracker).toContainText('Options: Awake, Sleep');
+    await expect(row).toContainText('Awake');
+
+    await managedTracker.getByRole('button', { name: 'Edit' }).click();
+    editTrackerDialog = page.getByRole('dialog', { name: 'Edit tracker' });
+    await editTrackerDialog.getByLabel('Options, separated by commas').fill('Sleep');
+    page.once('dialog', async dialog => {
+      expect(dialog.message()).toContain('Remove Awake and delete 1 associated records?');
+      await dialog.accept();
+    });
+    await editTrackerDialog.getByRole('button', { name: 'Save tracker' }).click();
+    await expect(editTrackerDialog).toBeHidden();
+
+    await navigation(page, testInfo).getByRole('link', { name: /History/ }).click();
+    await expect(historyView.locator('.activity-row').filter({ hasText: 'Sleep Tracker' }))
+      .toHaveCount(0);
+  });
 });
