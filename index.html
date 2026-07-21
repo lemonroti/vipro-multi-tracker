@@ -177,10 +177,35 @@
         <div class="form-grid two">
           <div class="field"><label for="trackerName">Tracker name</label><input id="trackerName" class="input" required maxlength="80" placeholder="e.g. Water" /></div>
           <div class="field"><label for="trackerIcon">Icon / emoji</label><input id="trackerIcon" class="input" maxlength="4" required value="✦" /></div>
-          <div class="field"><label for="trackerUnit">Unit</label><input id="trackerUnit" class="input" required maxlength="30" placeholder="minute, count, ml" /></div>
-          <div class="field"><label for="trackerGoal">Daily goal (optional)</label><input id="trackerGoal" class="input" type="number" min="0" step="any" placeholder="30" /></div>
+          <div class="field">
+            <label for="trackerInputType">Tracking type</label>
+            <select id="trackerInputType" class="select" aria-describedby="trackerInputTypeHelp" required>
+              <option value="unit">Unit</option>
+              <option value="option">Option</option>
+            </select>
+            <p id="trackerInputTypeHelp" class="field-help"></p>
+          </div>
         </div>
-        <div class="field" style="margin-top:14px"><label for="trackerPresets">Quick values, separated by commas</label><input id="trackerPresets" class="input" required placeholder="5, 10, 15" /></div>
+        <div id="trackerUnitFields" class="tracker-type-fields tracker-unit-fields">
+          <div class="field">
+            <label for="trackerUnit">Unit</label>
+            <input id="trackerUnit" class="input" maxlength="30" placeholder="minute, count, ml" />
+          </div>
+          <div class="field">
+            <label for="trackerGoal">Daily goal (optional)</label>
+            <input id="trackerGoal" class="input" type="number" min="0" step="any" placeholder="30" />
+          </div>
+          <div class="field">
+            <label for="trackerPresets">Quick values, separated by commas</label>
+            <input id="trackerPresets" class="input" placeholder="5, 10, 15" />
+          </div>
+        </div>
+        <div id="trackerOptionFields" class="tracker-type-fields" hidden>
+          <div class="field">
+            <label for="trackerOptions">Options, separated by commas</label>
+            <input id="trackerOptions" class="input" placeholder="Sleep, Wake" />
+          </div>
+        </div>
         <div class="field" style="margin-top:14px"><label>Card colour</label><div id="trackerColors" class="color-options"></div></div>
         <div class="form-actions"><button type="button" class="button outline" data-close-modal="trackerModal">Cancel</button><button class="button primary">Save tracker</button></div>
       </form>

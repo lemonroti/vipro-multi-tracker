@@ -1,4 +1,5 @@
 import type { AppState, Tracker } from '../../domain/models';
+import { parseOptionLabels } from '../../domain/tracker-options';
 import type { TrackerService } from '../../services/tracker-service';
 import type { OperationResult, TrackerInput } from '../../services/sync-service';
 import type { ShellController } from '../shell';
@@ -11,7 +12,7 @@ export const TRACKER_COLORS = [
 ] as const;
 
 export interface TrackerControllerDependencies {
-  service: Pick<TrackerService, 'save' | 'toggle' | 'delete'>;
+  service: Pick<TrackerService, 'analyze' | 'save' | 'toggle' | 'delete'>;
   store: Pick<AppStore, 'getState'>;
   shell: Pick<ShellController, 'openModal' | 'closeModal' | 'showToast'>;
   openLog(trackerId: string): void;
@@ -46,7 +47,10 @@ function operationMessage(
 
 function managementHtml(state: Readonly<AppState>, tracker: Tracker): string {
   const count = state.logs.filter(log => log.trackerId === tracker.id).length;
-  return `<article class="card manage-card ${tracker.active ? '' : 'inactive'}"><div class="manage-head"><div class="manage-details"><div class="tracker-icon" style="background:${tracker.color}1c;color:${tracker.color}">${escapeHtml(tracker.icon)}</div><div><h3>${escapeHtml(tracker.name)}</h3><p>${escapeHtml(tracker.unit)} · ${count} ${count === 1 ? 'record' : 'records'} · Quick values: ${tracker.presets.map(formatValue).join(', ')}</p></div></div><button class="toggle ${tracker.active ? 'on' : ''}" data-toggle-tracker="${escapeHtml(tracker.id)}" aria-label="Toggle tracker"></button></div><div class="manage-actions"><button class="button outline small" data-edit-tracker="${escapeHtml(tracker.id)}">Edit</button><button class="button outline small" data-add-for-tracker="${escapeHtml(tracker.id)}">Add record</button><button class="button danger small" data-delete-tracker="${escapeHtml(tracker.id)}">Delete</button></div></article>`;
+  const details = tracker.inputType === 'option'
+    ? `Option · ${count} ${count === 1 ? 'record' : 'records'} · Options: ${tracker.options.map(option => escapeHtml(option.label)).join(', ')}`
+    : `${escapeHtml(tracker.unit)} · ${count} ${count === 1 ? 'record' : 'records'} · Quick values: ${tracker.presets.map(formatValue).join(', ')}`;
+  return `<article class="card manage-card ${tracker.active ? '' : 'inactive'}"><div class="manage-head"><div class="manage-details"><div class="tracker-icon" style="background:${tracker.color}1c;color:${tracker.color}">${escapeHtml(tracker.icon)}</div><div><h3>${escapeHtml(tracker.name)}</h3><p>${details}</p></div></div><button class="toggle ${tracker.active ? 'on' : ''}" data-toggle-tracker="${escapeHtml(tracker.id)}" aria-label="Toggle tracker"></button></div><div class="manage-actions"><button class="button outline small" data-edit-tracker="${escapeHtml(tracker.id)}">Edit</button><button class="button outline small" data-add-for-tracker="${escapeHtml(tracker.id)}">Add record</button><button class="button danger small" data-delete-tracker="${escapeHtml(tracker.id)}">Delete</button></div></article>`;
 }
 
 export function createTrackerController(
@@ -55,7 +59,16 @@ export function createTrackerController(
   const management = getElement('#trackerManageList');
   const form = getElement<HTMLFormElement>('#trackerForm');
   const headerAction = getElement<HTMLButtonElement>('#headerAction');
+  const inputType = getElement<HTMLSelectElement>('#trackerInputType');
+  const unitFields = getElement<HTMLElement>('#trackerUnitFields');
+  const optionFields = getElement<HTMLElement>('#trackerOptionFields');
   let selectedColor: string = TRACKER_COLORS[1];
+
+  const renderInputType = (): void => {
+    const isOption = inputType.value === 'option';
+    unitFields.hidden = isOption;
+    optionFields.hidden = !isOption;
+  };
 
   const renderColors = (): void => {
     const container = getElement('#trackerColors');
@@ -71,9 +84,24 @@ export function createTrackerController(
     getElement<HTMLInputElement>('#trackerEditId').value = tracker?.id ?? '';
     getElement<HTMLInputElement>('#trackerName').value = tracker?.name ?? '';
     getElement<HTMLInputElement>('#trackerIcon').value = tracker?.icon ?? '✦';
-    getElement<HTMLInputElement>('#trackerUnit').value = tracker?.unit ?? '';
-    getElement<HTMLInputElement>('#trackerGoal').value = tracker?.goal?.toString() ?? '';
-    getElement<HTMLInputElement>('#trackerPresets').value = tracker?.presets.join(', ') ?? '1';
+    inputType.value = tracker?.inputType ?? 'unit';
+    getElement<HTMLInputElement>('#trackerUnit').value =
+      tracker?.inputType === 'unit' ? tracker.unit : '';
+    getElement<HTMLInputElement>('#trackerGoal').value =
+      tracker?.inputType === 'unit' ? tracker.goal?.toString() ?? '' : '';
+    getElement<HTMLInputElement>('#trackerPresets').value =
+      tracker?.inputType === 'unit' ? tracker.presets.join(', ') : '1';
+    getElement<HTMLInputElement>('#trackerOptions').value =
+      tracker?.inputType === 'option'
+        ? tracker.options.map(option => option.label).join(', ')
+        : '';
+    const typeLocked = tracker !== undefined
+      && state.logs.some(log => log.trackerId === tracker.id);
+    inputType.disabled = typeLocked;
+    getElement('#trackerInputTypeHelp').textContent = typeLocked
+      ? 'Tracking type cannot change after records exist.'
+      : '';
+    renderInputType();
     selectedColor = tracker?.color
       ?? TRACKER_COLORS[state.trackers.length % TRACKER_COLORS.length]
       ?? TRACKER_COLORS[0];
@@ -84,34 +112,67 @@ export function createTrackerController(
 
   const saveTracker = async (event: Event): Promise<void> => {
     event.preventDefault();
-    const presets = getElement<HTMLInputElement>('#trackerPresets').value
-      .split(',')
-      .map(value => Number(value.trim()))
-      .filter(value => Number.isFinite(value) && value > 0)
-      .slice(0, 8);
-    if (presets.length === 0) {
-      dependencies.shell.showToast('Enter at least one valid quick value');
-      return;
-    }
-
-    const goalValue = getElement<HTMLInputElement>('#trackerGoal').value;
-    const goal = goalValue === '' ? null : Number(goalValue);
-    if (goal !== null && (!Number.isFinite(goal) || goal < 0)) {
-      dependencies.shell.showToast('Enter a valid daily goal');
-      return;
-    }
-
     const id = getElement<HTMLInputElement>('#trackerEditId').value;
-    const input: TrackerInput = {
+    const common = {
       ...(id ? { id } : {}),
-      inputType: 'unit',
       name: getElement<HTMLInputElement>('#trackerName').value.trim(),
       icon: getElement<HTMLInputElement>('#trackerIcon').value.trim() || '✦',
-      unit: getElement<HTMLInputElement>('#trackerUnit').value.trim(),
-      goal,
-      presets,
       color: selectedColor
     };
+    let input: TrackerInput;
+    if (inputType.value === 'option') {
+      try {
+        input = {
+          ...common,
+          inputType: 'option',
+          optionLabels: parseOptionLabels(
+            getElement<HTMLInputElement>('#trackerOptions').value
+          )
+        };
+      } catch (error) {
+        dependencies.shell.showToast(
+          error instanceof Error ? error.message : 'Invalid option labels.'
+        );
+        return;
+      }
+    } else {
+      const presets = getElement<HTMLInputElement>('#trackerPresets').value
+        .split(',')
+        .map(value => Number(value.trim()))
+        .filter(value => Number.isFinite(value) && value > 0)
+        .slice(0, 8);
+      if (presets.length === 0) {
+        dependencies.shell.showToast('Enter at least one valid quick value');
+        return;
+      }
+
+      const goalValue = getElement<HTMLInputElement>('#trackerGoal').value;
+      const goal = goalValue === '' ? null : Number(goalValue);
+      if (goal !== null && (!Number.isFinite(goal) || goal < 0)) {
+        dependencies.shell.showToast('Enter a valid daily goal');
+        return;
+      }
+      input = {
+        ...common,
+        inputType: 'unit',
+        unit: getElement<HTMLInputElement>('#trackerUnit').value.trim(),
+        goal,
+        presets
+      };
+    }
+
+    const analysis = dependencies.service.analyze(input);
+    if (!analysis.ok) {
+      dependencies.shell.showToast(analysis.error.message);
+      return;
+    }
+    if (analysis.impact.removedRecordCount > 0) {
+      const labels = analysis.impact.removedOptions.map(option => option.label).join(', ');
+      if (!confirm(
+        `Remove ${labels} and delete ${analysis.impact.removedRecordCount} associated records?`
+      )) return;
+    }
+
     const result = await dependencies.service.save(input);
     if (operationMessage(
       result,
@@ -177,10 +238,12 @@ export function createTrackerController(
   const handleHeader = (): void => {
     if (headerAction.dataset.actionType === 'tracker') openModal();
   };
+  const handleInputType = (): void => renderInputType();
   const handleSubmit = (event: Event): void => void saveTracker(event);
 
   management.addEventListener('click', handleManagementClick);
   getElement('#trackerColors').addEventListener('click', handleColorClick);
+  inputType.addEventListener('change', handleInputType);
   form.addEventListener('submit', handleSubmit);
   getElements<HTMLElement>('[data-open-tracker]').forEach(button => (
     button.addEventListener('click', handleOpen)
@@ -197,6 +260,7 @@ export function createTrackerController(
     destroy() {
       management.removeEventListener('click', handleManagementClick);
       getElement('#trackerColors').removeEventListener('click', handleColorClick);
+      inputType.removeEventListener('change', handleInputType);
       form.removeEventListener('submit', handleSubmit);
       getElements<HTMLElement>('[data-open-tracker]').forEach(button => (
         button.removeEventListener('click', handleOpen)

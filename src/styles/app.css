@@ -917,6 +917,23 @@ textarea:disabled {
   font-weight: 620;
 }
 
+.field-help {
+  min-height: 1.4em;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.tracker-type-fields {
+  margin-top: 14px;
+}
+
+.tracker-unit-fields {
+  display: grid;
+  gap: 13px;
+}
+
 .input,
 .select,
 .textarea {
@@ -1486,6 +1503,14 @@ textarea:disabled {
 
   .form-grid.two {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tracker-unit-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tracker-unit-fields .field:last-child {
+    grid-column: 1 / -1;
   }
 
   .modal-backdrop {
